@@ -6,8 +6,6 @@
 #load data
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_sorted.csv", header=TRUE) #I added a new column ("data_type") and renamed the CSV
 
-
-
 #libraries
 library(devtools)
 #install_github("willpearse/phest")
@@ -137,8 +135,6 @@ min(herb$ordinal.date)
 min(erin$ordinal.date)
 
 
-
-
 ###Can I just group and calculate?
 weibDF1 <- phen2 %>%
   group_by(scientific_name) %>%
@@ -193,7 +189,7 @@ ggplot(weibSpp_long, aes(x = Value, y = scientific_name, color = Metric, shape =
 
 ####Now compare by data types
 ##herbarium versus observational
-#subste data
+#subset data
 specimen <- phen2 %>% 
   filter(data_type=="specimen")
 inat <- phen2 %>%
@@ -231,6 +227,73 @@ ggplot(weibDataType_long, aes(x = Value, y = type, color = type, shape = Metric)
   labs(x = "Flowering Date", y = "Data Type", shape = "Metric") +  # Set axis labels and legends
   ggtitle("Estimated vs. Observed Values") + # Set plot title
   theme_bw()
+
+
+
+
+######OVERALL ADVANCEMENT IN FLOWERING?
+# to check this, I think we need to subset the full dataset to keep only years with sufficient data (N=5 for now)
+
+your_data <- phen2 %>%
+  group_by(year) %>%
+  filter(n() >= 5) %>%
+  ungroup()
+
+# Get unique years
+unique_years <- unique(your_data$year)
+
+# Initialize an empty list to store results
+weibull_results_list <- list()
+
+# Loop through unique years
+for (year_value in unique_years) {
+  # Subset the data for the current year
+  subset_data <- your_data[your_data$year == year_value, ]
+  
+  # Apply weib.limit function
+  weibull_result <- weib.limit(x = subset_data$ordinal_date) #naive estimation using the function without alpha or k value
+  
+  # Create a dataframe with the results
+  result_df <- data.frame(
+    year = year_value,
+    estimate = weibull_result[[1]],
+    lower_ci = weibull_result[[2]],
+    upper_ci = weibull_result[[3]]
+  )
+  
+  # Append to the list
+  weibull_results_list <- c(weibull_results_list, list(result_df))
+}
+
+# Convert the list to a dataframe
+weibAnnualDF <- do.call(rbind, weibull_results_list)
+
+#Join the weibAnnualDF estimations to observed earliest flowering date for the yeras that have sufficient data
+
+weibMin <- weibAnnualDF %>%
+  filter(!estimate=="") 
+
+obs.min <- phen2 %>%
+  group_by(year) %>%
+  summarize(obs.min=min(ordinal_date))
+
+annualMins<- left_join(weibMin, obs.min, by="year")
+
+
+ann1<-ggplot(annualMins, aes(x = year, y = obs.min)) +
+  geom_point(alpha=0.4, color="turquoise3") +
+  geom_smooth(method = "lm", se = FALSE, color="turquoise4") +
+  labs(title = "Observed and estimated earliest flowering dates by year",
+       x = "Year",
+       y = "Earliest Ordinal Date") +
+  theme_minimal()
+
+ann2 <- ann1 + 
+  geom_point(aes(x=year, y= estimate), alpha=0.5, color="darkslategrey") +
+  geom_smooth(aes(x = year, y = estimate), method = "lm", se = FALSE, color = "darkslategrey", linetype = "dashed")
+
+
+
 
 
 
