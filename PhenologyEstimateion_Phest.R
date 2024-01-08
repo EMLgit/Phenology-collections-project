@@ -294,6 +294,12 @@ ann2 <- ann1 +
 
 
 
+# Run linear regression and print summary
+ann.lm1 <- lm(obs.min ~ year, data = annualMins)
+ann.lm2 <- lm(estimate ~ year, data = annualMins)
+
+ann.summ1 <- tidy(ann.lm1)
+ann.summ2 <- tidy(ann.lm2)
 
 
 

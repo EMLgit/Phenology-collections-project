@@ -18,8 +18,8 @@ phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology p
 
 #convert the dataframe to an sf object
 phen_sf <- phen %>%
-  filter(!latitude=="") %>%
-  filter(!longitude =="") %>%
+  filter(!is.na(longitude)) %>%
+  filter(!is.na(latitude)) %>%
   st_as_sf(coords=c("longitude", "latitude"), crs=4326)
 
 
@@ -29,6 +29,94 @@ pp.aoi <- st_read("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology 
 
 mbs.aoi <- st_read("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Site Polygons/MountEvans_Poly.shp") %>%
   st_transform(4326)
+
+
+
+####Load PRISM data that was downloaded from online site.
+#these data frame are yearly and monthly averages across the three gridded rasters Erin focused on
+
+
+#montly precipitation since 1895
+
+mbs.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_ppt_monthlyMeans.csv", header = TRUE)
+pp.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_ppt_monthlyMeans.csv", header = TRUE)
+
+comb.ppt <- rbind(mbs.ppt, pp.ppt) #this is the combined precipitation date for the study areas
+
+ggplot(comb.ppt, aes(x = month, y = ppt.mean)) +
+  geom_point(alpha=0.3, color="darkslategrey") +
+  geom_smooth(method="gam", color="darkslategrey") + #general additive model to fit the data...seems fine for now?
+  labs(title = "Annual precipitation trends",
+       x = "Month",
+       y = "Precipitation (inches)") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+
+##Annual averages (provided by Erin)
+#annual precipitation since 1895
+mbs.annppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_ppt_annual.csv", header = TRUE)
+pp.annppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_ppt_annual.csv", header = TRUE)
+
+comb.annppt <- rbind(mbs.annppt, pp.annppt)
+
+#plot of annual data from Erin for each site over time
+ggplot(comb.annppt, aes(x = year, y = mean.ppt)) +
+  geom_point(alpha=0.3, color="darkslategrey") +
+  geom_smooth(method="loess", color="darkslategrey") + 
+  labs(title = "Annual precipitation trends",
+       x = "Year",
+       y = "Precipitation (inches)") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+#break it down by raster grid
+ggplot(comb.annppt, aes(x = year, y = summit.ppt)) +
+  geom_point(alpha=0.3, color="darkslategrey") +
+  geom_smooth(method="loess", color="darkslategrey") + 
+  geom_point(aes(x=year, y= mid.ppt), alpha=0.5, color="darkblue") +
+  geom_smooth(aes(x = year, y = mid.ppt), method = "loess", color = "darkblue")+
+  geom_point(aes(x=year, y= sub.ppt), alpha=0.5, color="darkgreen") +
+  geom_smooth(aes(x = year, y = sub.ppt), method = "loess", color = "darkgreen")+
+  labs(title = "Annual precipitation trends",
+       x = "Year",
+       y = "Precipitation (inches)") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+
+####Put abiotic and biotic data together
+####Join the prism data to the flowering data from Exploratory Data Analysis script.
+#remember that earlyPhen has all the data for records made the earliest day (ordinal_date) of each year. There are multiple per year sometimes
+earlyPhen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/earlyPhen.csv", header = TRUE) 
+
+#join
+fullDF <- earlyPhen %>%
+  left_join(comb.annppt, by="year")
+
+ggplot(fullDF, aes(x = mean.ppt, y = ordinal_date)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
+  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
+       x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal()
+
+
+# Run linear regression and print summary
+pptlm<-lm(ordinal_date ~ mean.ppt, data = fullDF)
+pptsumm1 <- tidy(pptlm)
+
+print(pptlm)
+print(pptsumm1)
+
+
+
+
+
 
 
 
