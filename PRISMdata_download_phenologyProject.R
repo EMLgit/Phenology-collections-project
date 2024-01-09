@@ -94,8 +94,8 @@ ggplot(comb.annppt, aes(x = year, y = summit.ppt)) +
 earlyPhen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/earlyPhen.csv", header = TRUE) 
 
 #join
-fullDF <- earlyPhen %>%
-  left_join(comb.annppt, by="year")
+try <- earlyPhen %>% # I don't think this is working correctly
+  inner_join(comb.annppt, by="year")
 
 ggplot(fullDF, aes(x = mean.ppt, y = ordinal_date)) +
   geom_point() +
@@ -112,6 +112,120 @@ pptsumm1 <- tidy(pptlm)
 
 print(pptlm)
 print(pptsumm1)
+
+
+
+
+
+#Temperature since 1895
+
+#montly mean temperature since 1895
+mbs.tmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_tmean_monthly.csv", header = TRUE)
+pp.tmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_tmean_monthly.csv", header = TRUE)
+
+comb.tmean <- rbind(mbs.tmean, pp.tmean) #this is the combined precipitation data for monthly analyses for the study areas
+
+ggplot(comb.tmean, aes(x = month, y = tmean.avg)) +
+  geom_point(alpha=0.3, color="goldenrod4") +
+  geom_smooth(method="gam", color="goldenrod4") + #general additive model to fit the data...seems fine for now?
+  labs(title = "Annual mean temperature trends",
+       x = "Month",
+       y = "Temperature") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+#annual temperature since 1895
+mbs.anntmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_tmean_annual.csv", header = TRUE)
+pp.anntmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_tmean_annual.csv", header = TRUE)
+
+comb.anntmean <- rbind(mbs.anntmean, pp.anntmean)
+
+#plot of annual data from Erin for each site over time
+ggplot(comb.anntmean, aes(x = year, y = mean.tmean)) +
+  geom_point(alpha=0.3, color="goldenrod4") +
+  geom_smooth(method="loess", color="goldenrod4") + 
+  labs(title = "Annual mean temperature trends",
+       x = "Year",
+       y = "Temperature (F") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+#break it down by raster grid
+ggplot(comb.anntmean, aes(x = year, y = summit.tmean)) +
+  geom_point(alpha=0.3, color="goldenrod4") +
+  geom_smooth(method="loess", color="goldenrod4") + 
+  geom_point(aes(x=year, y= mid.tmean), alpha=0.5, color="lightblue") +
+  geom_smooth(aes(x = year, y = mid.tmean), method = "loess", color = "lightblue")+
+  geom_point(aes(x=year, y= sub.tmean), alpha=0.5, color="lightgreen") +
+  geom_smooth(aes(x = year, y = sub.tmean), method = "loess", color = "lightgreen")+
+  labs(title = "Annual temperature trends",
+       x = "Year",
+       y = "Temperature (F)") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+
+
+####Join precip and temperature into a dataframe for annual (prismANN) and monthly(prismMNTH) data
+prismANN <- comb.annppt %>%
+  cbind(comb.anntmean) %>%
+  dplyr::select(-"site", -"year")
+prismANN$site = toupper(prismANN$site) #upper case to match the other datasheets with phenology
+
+
+prismMNTH<- comb.ppt %>%
+  cbind(comb.tmean) %>%
+  dplyr::select(-"month", -"site", -"year")
+
+#join earliest flowering date for each site/year combination
+flwsANN <- earlyPhen %>%
+  distinct(year, site, ordinal_date) %>%
+  inner_join( prismANN, 
+            by=c('site','year'))
+
+
+
+####Put abiotic and biotic data together
+####Join the prism data to the flowering data from Exploratory Data Analysis script.
+#remember that earlyPhen has all the data for records made the earliest day (ordinal_date) of each year. There are multiple per year sometimes
+
+
+#Precipitation impacts on earliest flowering at each site over annual time
+ggplot(flwsANN, aes(x = mean.ppt, y = ordinal_date)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
+  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
+       x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal()
+
+
+# Run linear regression and print summary
+pptlm<-lm(ordinal_date ~ mean.ppt, data = flwsANN)
+pptsumm1 <- tidy(pptlm)
+
+print(pptlm)
+print(pptsumm1)
+
+
+#Temperature impacts on earliest flowering at each site over annual time
+ggplot(flwsANN, aes(x = mean.tmean, y = ordinal_date)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="goldenrod4") +
+  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
+       x = "Annual Temperature (F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal()
+
+
+# Run linear regression and print summary
+tmeanlm<-lm(ordinal_date ~ mean.tmean, data = flwsANN)
+tmeansumm1 <- tidy(tmeanlm)
+
+print(tmeanlm)
+print(tmeansumm1)
 
 
 
