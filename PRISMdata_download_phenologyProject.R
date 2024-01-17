@@ -199,7 +199,8 @@ ggplot(flwsANN, aes(x = mean.ppt, y = ordinal_date)) +
   labs(title = "Correlation between observed earliest dates and minimum annual ppt",
        x = "Annual Precipitation (inches)",
        y = "Earliest Ordinal Date") +
-  theme_minimal()
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
 
 
 # Run linear regression and print summary
@@ -217,7 +218,8 @@ ggplot(flwsANN, aes(x = mean.tmean, y = ordinal_date)) +
   labs(title = "Correlation between observed earliest dates and minimum annual ppt",
        x = "Annual Temperature (F)",
        y = "Earliest Ordinal Date") +
-  theme_minimal()
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
 
 
 # Run linear regression and print summary
@@ -230,11 +232,7 @@ print(tmeansumm1)
 
 
 
-
-
-
-
-
+###########
 ###To use the PRISM API and download via R, you need to define the directories the first time you use it:
 #Specify where raster layers will go
 options(prism.path="/Users/elizabethlombardi/Desktop/PRISM/Erin_PhenologyProject")

@@ -14,6 +14,9 @@ phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology p
 View(phen)
 names(phen)
 
+#Or load the data stack
+load("phenologyCollProj_workspace.RData")
+
 #define color palette, as discussed with Erin. Green indicates Pikes Peak, Purple indicates Mt. Blue Sky
 colors = (c("#D86FEF", "#0DA907"))
 
@@ -183,10 +186,11 @@ print(summary(anova5)) #this confirms that different species initiate flowering 
 
 #####Temporal change in earliest flowering dates??
 
-#I. Generally, are flowers producing buds earlier? 
+#I. Generally, are flowers producing buds earlier?  'earlyPhen' is when all data, regardless of type are combined.
 earlyPhen <- phen %>%
   group_by(year) %>%
   filter(ordinal_date == min(ordinal_date))
+table(earlyPhen$data_type) #most are from herbarium specimens
 
 write.csv(earlyPhen, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/earlyPhen.csv", row.names = TRUE)
 

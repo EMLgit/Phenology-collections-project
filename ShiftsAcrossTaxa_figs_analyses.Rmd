@@ -1,0 +1,232 @@
+---
+title: "Phenology_TaxonomicChangeTime"
+author: "emlombardi"
+date: "2024-01-16"
+output: html_document
+---
+
+#Is there a phylogenetic signal in flowering advancement across time?
+
+This is a script to look at taxonomic and phylogenetic variation in first flowering at Pikes Peak and Mount Blue Sky in Colorado. Created by EML but intended for use by EB.
+
+```{r libraries}
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+```
+##How many observations and specimens per species?
+Note that there are far more observations than there are specimens (N=1371 observations, N=514 specimens).
+
+There are different numbers of data points for each species, and this varies by data type. Nonetheless, it's entirely possible that there are enough across time to assess across time.
+
+```{r}
+#observations
+observations <- phen2 %>%
+  filter(data_type == "observation")
+tObs<-observations %>%
+  group_by(scientific_name) %>%
+  tally(sort=TRUE)%>%
+  rename("cnt.Obs"="n")
+
+
+#specimens
+specimen <- phen2 %>%
+  filter(data_type == "specimen")
+tSpec<-specimen %>%
+  group_by(scientific_name) %>%
+  tally(sort=TRUE) %>%
+  rename("cnt.Specimen"="n")
+
+cntsTable <- tObs %>%
+  left_join(tSpec, by="scientific_name")
+
+write.csv(cntsTable, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Tables/table_TallybySpecies.csv", row.names=TRUE)
+
+```
+
+
+##When were different species recorded over time?
+
+```{r}
+#observations
+recs1<-ggplot(observations, aes(x = year, y = ordinal_date)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "lm", se = FALSE, color="goldenrod") +
+  labs(
+    title = "Box Plot of Values by Category",
+    x = "Date",
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/SpeciesObservations_OverTime.pdf", recs1, width = 12, height = 8, dpi = 300)
+
+
+#Take a look differently:
+ggplot(observations, aes(x = year)) +
+  geom_bar() +
+  labs(
+    title = "Box Plot of Values by Category",
+    x = "Date",
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+
+
+#specimens with slope values
+recs2<-ggplot(specimen, aes(x = year, y = ordinal_date)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "lm", se = FALSE, color="skyblue3") +
+  labs(
+    title = "Box Plot of Values by Category",
+    x = "Date",
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/SpeciesSpecimen_OverTime.pdf", recs2, width = 12, height = 8, dpi = 300)
+
+ggplot(specimen, aes(x = year)) +
+  geom_bar() +
+  labs(
+    title = "Box Plot of Values by Category",
+    x = "Date",
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+
+
+
+```
+##Changing earliest flowering date for each species?
+There aren't enough records made each year for each species to really assess change over time, but maybe we could use at a decadal time unit. 
+What I want to do here:
+-Calculate the number of specimen records made for each species each decade
+-Find the earliest ordinal date for each species each decade
+-Have first flowering dates each decade changed?
+
+I think I should just create a new dataframe with columns: scientific_name, Number of records/decade, earliest flowering date/decade
+```{r}
+#step 1: new dataframe with earliest flowering date each year for each species
+minSpec <- specimen %>%
+  group_by(scientific_name, year) %>%
+  summarize(minDate = min(ordinal_date))
+
+#add slope info for each species
+minSpec<- minSpec%>%
+  group_by(scientific_name) %>%
+  mutate(slope = coef(glm(minDate ~ year))[2])
+
+ggplot(minSpec, aes(x = year, y = minDate)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "glm", se = FALSE, color="skyblue3") +
+  geom_text(data = minSpec %>% slice(1),  # Take the first row for each species
+            aes(label = paste("Slope:", round(slope, 3))),
+            x = Inf, y = Inf, hjust = 1, vjust = 1,
+            color = "black", size = 3) +
+  labs(
+    title = "Earliest recorded flowering for each species each year",
+    x = "Year",
+    y = "Ordinal date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+
+
+####DECADAL change
+#Group years into decades and find earliest flowering date for each species each decade
+specimen<- specimen %>%
+  mutate(decade=floor(year/10)*10) 
+
+#calculate the minimum date
+minSpec.Decade <- specimen %>%
+  group_by(scientific_name, decade) %>%
+  summarize(minDate = min(ordinal_date))
+
+#add slope info for each species
+minSpec.Decade <- minSpec.Decade %>%
+  group_by(scientific_name) %>%
+  mutate(slope = coef(glm(minDate ~ decade))[2])
+
+
+ggplot(minSpec.Decade, aes(x = decade, y = minDate)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "glm", se = FALSE, color="skyblue3") +
+geom_text(data = minSpec.Decade %>% slice(1),  # Take the first row for each species
+            aes(label = paste("Slope:", round(slope, 3))),
+            x = Inf, y = Inf, hjust = 1, vjust = 1,
+            color = "black", size = 3) +
+  labs(
+    title = "Earliest recorded flowering for each species in each decade",
+    x = "Decade",
+    y = "Ordinal date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+```
+
+###Statistical significance of slopes?
+
+```{r}
+library(broom)
+
+####ANNUAL MODELS
+mod1 <- glm(minDate ~ year + scientific_name, data = minSpec)
+tidymod1 <- as.data.frame(tidy(mod1))
+
+pvals.mod1 <- tidymod1 %>%
+  filter(!term == "year") %>%
+  select(term, p.value)
+
+mod1.sigSpp <- pvals.mod1 %>% #significant decrease at the ANNUAL time scale for a few
+  filter(p.value < 0.05)
+
+####DECADAL MODELS
+mod2 <- glm(minDate ~ decade + scientific_name, data = minSpec.Decade)
+tidymod2 <- tidy(mod2)
+
+pvals.mod2 <- tidymod2 %>%
+  #filter(term == "decade") %>%
+  select(term, p.value)
+
+mod2.sigSpp <- pvals.mod2 %>% #significant decrease at the DECADAL time scale for a few
+  filter(p.value < 0.05)
+
+
+####DECADAL MODELS
+mod2 <- glm(minDate ~ decade + scientific_name, data = minSpec.Decade)
+tidymod2 <- tidy(mod2)
+summary(mod2)
+
+
+pvals.mod2 <- tidymod2 %>%
+  #filter(term == "decade") %>%
+  select(term, p.value)
+
+mod2.sigSpp <- pvals.mod2 %>% #significant decrease at the decadal time scale for a few
+  filter(p.value < 0.05)
+
+
+
+```
