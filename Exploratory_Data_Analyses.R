@@ -239,7 +239,7 @@ print(rsumm2)
 earlyPhen.obs <- earlyPhen %>%
   filter(data_type == "observation")
 
-earlyPhen.obs2 <- earlyPhen.obs %>%
+earlyPhen.obs2 <- earlyPhen.obs %>% #should we remove that single very-early 1994 date? Nah. Erin confirmed that it's real
   filter(!year<"2000")
 
 corrPlot3 <- ggplot(earlyPhen.obs, aes(x = year, y = ordinal_date)) +

@@ -121,6 +121,8 @@ What I want to do here:
 -Have first flowering dates each decade changed?
 
 I think I should just create a new dataframe with columns: scientific_name, Number of records/decade, earliest flowering date/decade
+
+####Specimen data
 ```{r}
 #step 1: new dataframe with earliest flowering date each year for each species
 minSpec <- specimen %>%
@@ -218,5 +220,107 @@ mod2.sigSpp <- pvals.mod2 %>% #significant decrease at the decadal time scale fo
   filter(p.value < 0.05)
 
 
+
+```
+
+
+
+####Observational Data
+
+```{r}
+#step 1: new dataframe with earliest flowering date each year for each species
+minObs <- observations %>%
+  group_by(scientific_name, year) %>%
+  summarize(minDate = min(ordinal_date))
+
+#add slope info for each species
+minObs<- minObs%>%
+  group_by(scientific_name) %>%
+  mutate(slope = coef(glm(minDate ~ year))[2])
+
+ggplot(minObs, aes(x = year, y = minDate)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "glm", se = FALSE, color="goldenrod3") +
+  geom_text(data = minObs %>% slice(1),  # Take the first row for each species
+            aes(label = paste("Slope:", round(slope, 3))),
+            x = Inf, y = Inf, hjust = 1, vjust = 1,
+            color = "black", size = 3) +
+  labs(
+    title = "Earliest recorded flowering for each species each year",
+    x = "Year",
+    y = "Ordinal date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+
+
+####DECADAL change
+#Group years into decades and find earliest flowering date for each species each decade
+observations <- observations %>%
+  mutate(decade=floor(year/10)*10) 
+
+#calculate the minimum date
+minObs.Decade <- observations %>%
+  group_by(scientific_name, decade) %>%
+  summarize(minDate = min(ordinal_date))
+
+#add slope info for each species
+minObs.Decade <- minObs.Decade %>%
+  group_by(scientific_name) %>%
+  mutate(slope = coef(glm(minDate ~ decade))[2])
+
+
+ggplot(minObs.Decade, aes(x = decade, y = minDate)) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "glm", se = FALSE, color="goldenrod3") +
+geom_text(data = minObs.Decade %>% slice(1),  # Take the first row for each species
+            aes(label = paste("Slope:", round(slope, 3))),
+            x = Inf, y = Inf, hjust = 1, vjust = 1,
+            color = "black", size = 3) +
+  labs(
+    title = "Earliest recorded flowering for each species in each decade",
+    x = "Decade",
+    y = "Ordinal date"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+```
+
+###Statistical significance of slopes?
+
+```{r}
+library(broom)
+
+####ANNUAL MODELS
+mod1b <- glm(minDate ~ year + scientific_name, data = minObs)
+tidymod1b <- as.data.frame(tidy(mod1))
+summary(mod1b)
+
+pvals.mod1b <- tidymod1b %>%
+  filter(!term == "year") %>%
+  select(term, p.value)
+
+mod1b.sigSpp <- pvals.mod1b %>% #significant decrease at the ANNUAL time scale for a few
+  filter(p.value < 0.05)
+
+
+
+####DECADAL MODELS
+mod2b <- glm(minDate ~ decade + scientific_name, data = minObs.Decade)
+tidymod2b <- tidy(mod2b)
+summary(mod2b)
+
+pvals.mod2b <- tidymod2b %>%
+  #filter(term == "decade") %>%
+  select(term, p.value)
+
+mod2b.sigSpp <- pvals.mod2b %>% #significant decrease at the decadal time scale for a few
+  filter(p.value < 0.05)
 
 ```
