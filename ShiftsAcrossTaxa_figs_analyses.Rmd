@@ -194,23 +194,13 @@ library(broom)
 ####ANNUAL MODELS
 mod1 <- glm(minDate ~ year + scientific_name, data = minSpec)
 tidymod1 <- as.data.frame(tidy(mod1))
+summary(mod1)
 
 pvals.mod1 <- tidymod1 %>%
   filter(!term == "year") %>%
   select(term, p.value)
 
 mod1.sigSpp <- pvals.mod1 %>% #significant decrease at the ANNUAL time scale for a few
-  filter(p.value < 0.05)
-
-####DECADAL MODELS
-mod2 <- glm(minDate ~ decade + scientific_name, data = minSpec.Decade)
-tidymod2 <- tidy(mod2)
-
-pvals.mod2 <- tidymod2 %>%
-  #filter(term == "decade") %>%
-  select(term, p.value)
-
-mod2.sigSpp <- pvals.mod2 %>% #significant decrease at the DECADAL time scale for a few
   filter(p.value < 0.05)
 
 
