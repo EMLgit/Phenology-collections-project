@@ -7,6 +7,11 @@ library(dplyr)
 library(ggplot2)
 library(ggridges)
 library(viridis)
+library(khroma)
+
+
+#define color palette
+siteCols = c("#4477AA", "#EE6677") #MBS is blue, PP is red
 
 #Load data in CSV format. Check to see if it's the most up to date version with Erin. 
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_sorted.csv", header=TRUE) 
@@ -15,7 +20,7 @@ View(phen)
 names(phen)
 
 #Or load the data stack
-load("phenologyCollProj_workspace.RData")
+load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
 
 #define color palette, as discussed with Erin. Green indicates Pikes Peak, Purple indicates Mt. Blue Sky
 colors = (c("#D86FEF", "#0DA907"))
@@ -90,10 +95,12 @@ siteFig2<-ggplot(phen, aes(x = ordinal_date, y = subsite)) + #change between sub
   ) +
   theme_minimal() +
   theme(legend.position = "top") +
-  scale_fill_manual(values=colors) 
+  scale_fill_manual(values=siteCols) +
+  facet_wrap(~ data_type, scales = "free_x")
 
 
-siteFig2.spp <- ggplot(phen, aes(x = ordinal_date, y = subsite)) +
+
+siteFig2.spp <- ggplot(phen, aes(x = ordinal_date, y = site)) +
   geom_boxplot(aes(fill = site), outlier.shape = NA) +
   labs(
     title = "Box Plot of Values by Category",
@@ -102,7 +109,7 @@ siteFig2.spp <- ggplot(phen, aes(x = ordinal_date, y = subsite)) +
   ) +
   theme_minimal() +
   theme(legend.position = "top") +
-  scale_fill_manual(values=colors) +
+  scale_fill_manual(values=siteCols) +
   facet_wrap(~scientific_name)
 
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/siteFig2.png", siteFig2, width = 10, height = 5, dpi = 300)

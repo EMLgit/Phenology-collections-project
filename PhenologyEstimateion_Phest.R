@@ -239,6 +239,12 @@ your_data <- phen2 %>%
   filter(n() >= 5) %>%
   ungroup()
 
+#Separate by data_type by filtering the dataset as specimen versus observation
+your_data <- your_data %>%
+  filter(data_type=="specimen")
+your_data <- your_data %>%
+  filter(data_type=="observation")
+
 # Get unique years
 unique_years <- unique(your_data$year)
 
@@ -267,19 +273,30 @@ for (year_value in unique_years) {
 
 # Convert the list to a dataframe
 weibAnnualDF <- do.call(rbind, weibull_results_list)
+weibAnnualDF.herb <- do.call(rbind, weibull_results_list)
+weibAnnualDF.obs <- do.call(rbind, weibull_results_list)
 
 #Join the weibAnnualDF estimations to observed earliest flowering date for the yeras that have sufficient data
-
-weibMin <- weibAnnualDF %>%
+weibMin.all  <- weibAnnualDF %>%
+  filter(!estimate=="")
+weibMin.herb <- weibAnnualDF.herb %>%
+  filter(!estimate=="") 
+weibMin.obs <- weibAnnualDF.obs %>%
   filter(!estimate=="") 
 
+###Find the earliest ever records by year
 obs.min <- phen2 %>%
   group_by(year) %>%
   summarize(obs.min=min(ordinal_date))
 
-annualMins<- left_join(weibMin, obs.min, by="year")
+
+###Join to the weibull results for earliest (all), earliest (herb) and earliest(inat); do I actually want to do this? I have more minimum data than just those with years in common. 
+annualMins <- left_join(weibMin.all, obs.min, by="year")
+annualMins.herb <- left_join(weibMin.herb, by="year")
+annualMins.obs <- left_join(weibMin.obs, obs.min, by="year")
 
 
+#Plotting estimates based on all earliest data combined, and observed (all data combined)
 ann1<-ggplot(annualMins, aes(x = year, y = obs.min)) +
   geom_point(alpha=0.4, color="turquoise3") +
   geom_smooth(method = "lm", se = FALSE, color="turquoise4") +
@@ -287,19 +304,46 @@ ann1<-ggplot(annualMins, aes(x = year, y = obs.min)) +
        x = "Year",
        y = "Earliest Ordinal Date") +
   theme_minimal()
-
 ann2 <- ann1 + 
   geom_point(aes(x=year, y= estimate), alpha=0.5, color="darkslategrey") +
   geom_smooth(aes(x = year, y = estimate), method = "lm", se = FALSE, color = "darkslategrey", linetype = "dashed")
 
 
 
-# Run linear regression and print summary
-ann.lm1 <- lm(obs.min ~ year, data = annualMins)
-ann.lm2 <- lm(estimate ~ year, data = annualMins)
+# Run linear regression and print summary: comparing observed minimum dates (across data type) to estimated minimum dates (across data types)
+ann.lm1 <- glm(obs.min ~ year, data = annualMins) #this is for all minimum dates across datatypes that were observed
+ann.lm2 <- glm(estimate ~ year, data = annualMins)
+
+summary(ann.lm1) #slope = -0.10430
+summary(ann.lm2) #slope = -0.2810 
 
 ann.summ1 <- tidy(ann.lm1)
 ann.summ2 <- tidy(ann.lm2)
+
+
+#Now find slopes for observed earliest flowering dates between data types
+ann.lm3 <- glm(ordinal_date ~ year, data = earlyPhen.herb)
+summary(ann.lm3) #slope = -0.10480 
+
+ann.lm4 <- glm(ordinal_date~year, data=earlyPhen.obs)
+summary(ann.lm4) #slop= -1.2213
+
+####Revise previous plot to examine estimated versus observed earliest flowering over time, but compare by data type
+###TRY making a single plot with points and regression lines for all, specimen and observation data [all estimated using Weibull]
+ann.all <- ggplot(annualMins, aes(x=year, y=estimate)) +
+  geom_point(alpha=.8, color="darkslategrey") +
+  geom_smooth(method ="glm", se=FALSE, color="darkslategrey", linetype="dashed") +
+  theme_minimal()
+
+#compare best estimated earliest flowering (all data) to observed earliest flowering for observation vs specimen data_types
+ann.all2 <- ann.all +
+  geom_point(data = earlyPhen.herb, aes(x = year, y = ordinal_date), alpha = 0.4, color = "skyblue") +
+  geom_smooth(data = earlyPhen.herb, aes(x = year, y = ordinal_date), method="glm", se=FALSE, color="skyblue")
+
+
+ann.all3 <- ann.all2 +
+  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.4, color="goldenrod3") +
+  geom_smooth(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), method="lm", se=FALSE, color="goldenrod3")
 
 
 
