@@ -32,12 +32,16 @@ mbs.aoi <- st_read("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology
 
 
 
+#define color palettes
+siteCols = c("#4477AA", "#EE6677") #MBS is blue, PP is red
+dataCols = c("#AA3377", "#CCBB44")
+
+
+
 ####Load PRISM data that was downloaded from online site.
 #these data frame are yearly and monthly averages across the three gridded rasters Erin focused on
 
-
 #montly precipitation since 1895
-
 mbs.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_ppt_monthlyMeans.csv", header = TRUE)
 pp.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_ppt_monthlyMeans.csv", header = TRUE)
 
@@ -51,7 +55,6 @@ ggplot(comb.ppt, aes(x = month, y = ppt.mean)) +
        y = "Precipitation (inches)") +
   theme_minimal() +
   facet_wrap(~ site, scales = "free_x")
-
 
 
 ##Annual averages (provided by Erin)
@@ -88,38 +91,13 @@ ggplot(comb.annppt, aes(x = year, y = summit.ppt)) +
 
 
 
-####Put abiotic and biotic data together
-####Join the prism data to the flowering data from Exploratory Data Analysis script.
-#remember that earlyPhen has all the data for records made the earliest day (ordinal_date) of each year. There are multiple per year sometimes
-earlyPhen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/earlyPhen.csv", header = TRUE) 
-
-#join
-try <- earlyPhen %>% # I don't think this is working correctly
-  inner_join(comb.annppt, by="year")
-
-ggplot(fullDF, aes(x = mean.ppt, y = ordinal_date)) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
-  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
-       x = "Annual Precipitation (inches)",
-       y = "Earliest Ordinal Date") +
-  theme_minimal()
-
-
-# Run linear regression and print summary
-pptlm<-lm(ordinal_date ~ mean.ppt, data = fullDF)
-pptsumm1 <- tidy(pptlm)
-
-print(pptlm)
-print(pptsumm1)
-
-
-
-
-
+#
+#
 #Temperature since 1895
-
-#montly mean temperature since 1895
+#
+#
+#
+#monthly mean temperature since 1895
 mbs.tmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_tmean_monthly.csv", header = TRUE)
 pp.tmean <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_tmean_monthly.csv", header = TRUE)
 
@@ -168,145 +146,221 @@ ggplot(comb.anntmean, aes(x = year, y = summit.tmean)) +
 
 
 
-####Join precip and temperature into a dataframe for annual (prismANN) and monthly(prismMNTH) data
-prismANN <- comb.annppt %>%
-  cbind(comb.anntmean) %>%
-  dplyr::select(-"site", -"year")
-prismANN$site = toupper(prismANN$site) #upper case to match the other datasheets with phenology
+###JOINING ABIOTIC AND OCCURRENCE DATA
+#Note that there are not annual data from PRISM for year 2023, but there are some monthly data for 2023 (months 1 through 9)
+
+####Join precip and temperature into a dataframe for annual (prism.annual) and monthly(prism.month) data to occurrence data
+
+#annual
+prism.annual <- merge(comb.anntmean, comb.annppt, by = c("year", "site"))
+prism.annual$site = toupper(prism.annual$site) #upper case to match the other datasheets with phenology
+
+#monthly
+prism.month<- merge(comb.tmean, comb.ppt, by = c("month", "year", "site"))
+prism.month$site = toupper(prism.month$site)
+
+# i. join to just the earlyPhen data
+#Create full datasets of all earlyPhen occurrences with associated annual and monthly abiotic data
+early.annual <-merge(earlyPhen, prism.annual, by=c("year", "site"))
+#check to see what didn't merge
+check<-anti_join(earlyPhen, early.annual) #these are the records from too recent or too long ago to have associated PRISM data. Could add 2023
+
+early.monthly <- merge(earlyPhen, prism.month, by=c("year", "site")) #this is the earlyPhen data and each of the earliest records has 12 rows of abiotic data from that year
 
 
-prismMNTH<- comb.ppt %>%
-  cbind(comb.tmean) %>%
-  dplyr::select(-"month", -"site", -"year")
+# ii. join abiotic data to full phenology data
+#annual 
+full.annual<- merge(phen2, prism.annual, by=c("year", "site"))
+check<-anti_join(phen2, full.annual) #all are records that fall outside of the 1895-2022 PRISM time frame. 559 of the 592 are from 2023. 
 
-#join earliest flowering date for each site/year combination
-flwsANN <- earlyPhen %>%
-  distinct(year, site, ordinal_date) %>%
-  inner_join( prismANN, 
-            by=c('site','year'))
+#monthly
+full.monthly <- merge(phen2, prism.month, by=c("year", "site")) 
 
 
 
-####Put abiotic and biotic data together
-####Join the prism data to the flowering data from Exploratory Data Analysis script.
-#remember that earlyPhen has all the data for records made the earliest day (ordinal_date) of each year. There are multiple per year sometimes
 
+#PLOT
 
-#Precipitation impacts on earliest flowering at each site over annual time
-ggplot(flwsANN, aes(x = mean.ppt, y = ordinal_date)) +
+# impacts on flowering over annual time
+
+#i. plot full dataset
+ggplot(full.annual, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed ALL phenology dates and mean annual ppt",
+       x = "Annual Precipitation (inches)",
+       y = "All Ordinal Date") +
+  theme_minimal() +
+  facet_wrap(~ data_type, scales = "free_x")
+
+ggplot(full.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed ALL phenology dates and mean temperature",
+       x = "Annual temperature (F)",
+       y = "All Ordinal Date") +
+  theme_minimal() +
+  facet_wrap(~ data_type, scales = "free_x")
+
+#ii. plot earliest flowering dataset
+ggplot(early.annual, aes(x = mean.ppt, y = ordinal_date)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
-  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed Earliest phenology dates and mean annual ppt",
+       x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() 
+
+ggplot(early.annual, aes(x = mean.tmean, y = ordinal_date)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed Earliest phenology dates and mean annual temperature",
+       x = "Annual Temperature (f)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal()
+
+#annual ppt for earliest flowering data
+ggplot(early.annual, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed ALL phenology dates and mean annual ppt",
        x = "Annual Precipitation (inches)",
        y = "Earliest Ordinal Date") +
   theme_minimal() +
-  facet_wrap(~ site, scales = "free_x")
+  facet_wrap(~ data_type, scales = "free_x")
+
+#annual tmean
+ggplot(early.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed ALL phenology dates and mean annual temperature",
+       x = "Annual Temperature (F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  facet_wrap(~ data_type, scales = "free_x")
 
 
-# Run linear regression and print summary
-pptlm<-lm(ordinal_date ~ mean.ppt, data = flwsANN)
+
+# Run linear regression and print summaries
+
+#i. Earliest data only
+##precipitation
+pptlm<-lm(ordinal_date ~ mean.ppt, data = early.annual)
 pptsumm1 <- tidy(pptlm)
-
 print(pptlm)
 print(pptsumm1)
 
+pptlm.obs <- lm(ordinal_date ~ mean.ppt, data = early.annual, subset = (data_type == "observation"))
+pptlm.herb <- lm(ordinal_date ~ mean.ppt, data = early.annual, subset = (data_type == "specimen"))
 
-#Temperature impacts on earliest flowering at each site over annual time
-ggplot(flwsANN, aes(x = mean.tmean, y = ordinal_date)) +
+summary(pptlm.obs)
+summary(pptlm.herb)
+
+
+##temperature
+tmeanlm<-lm(ordinal_date ~ mean.tmean, data = early.annual)
+tmeansumm1 <- tidy(tmeanlm)
+print(tmeanlm)
+print(tmeansumm1)
+
+tmeanlm.obs <- lm(ordinal_date ~ mean.tmean, data = early.annual, subset = (data_type == "observation"))
+tmeanlm.herb <- lm(ordinal_date ~ mean.tmean, data = early.annual, subset = (data_type == "specimen"))
+
+summary(tmeanlm.obs)
+summary(tmeanlm.herb)
+
+
+
+#i. FULL data
+##precipitation
+pptlm2<-lm(ordinal_date ~ mean.ppt, data = full.annual)
+pptsumm2 <- tidy(pptlm2)
+print(pptlm2)
+print(pptsumm2)
+
+pptlm2.obs <- lm(ordinal_date ~ mean.ppt, data = full.annual, subset = (data_type == "observation"))
+pptlm2.herb <- lm(ordinal_date ~ mean.ppt, data = full.annual, subset = (data_type == "specimen"))
+
+summary(pptlm2.obs)
+summary(pptlm2.herb)
+
+
+##temperature
+tmeanlm2<-lm(ordinal_date ~ mean.tmean, data = full.annual)
+tmeansumm2 <- tidy(tmeanlm2)
+print(tmeanlm2)
+print(tmeansumm2)
+
+tmeanlm2.obs <- lm(ordinal_date ~ mean.tmean, data = full.annual, subset = (data_type == "observation"))
+tmeanlm2.herb <- lm(ordinal_date ~ mean.tmean, data = full.annual, subset = (data_type == "specimen"))
+
+summary(tmeanlm2.obs)
+summary(tmeanlm2.herb)
+
+
+
+
+
+
+
+#Are there correlations between collections and time generally; this probably belongs in the Exploratory Data Analysis script instead of here!
+
+#1. herbarium
+ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date)) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE, color="goldenrod4") +
-  labs(title = "Correlation between observed earliest dates and minimum annual ppt",
-       x = "Annual Temperature (F)",
+  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
+  #scale_color_manual(values=siteCols) +
+  labs(title = "Earliest herbarium dates over time",
+       x = "Year",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() 
+
+ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date, color=site)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=siteCols) +
+  labs(title = "Earliest herbarium dates over time",
+       x = "Year",
        y = "Earliest Ordinal Date") +
   theme_minimal() +
   facet_wrap(~ site, scales = "free_x")
 
 
-# Run linear regression and print summary
-tmeanlm<-lm(ordinal_date ~ mean.tmean, data = flwsANN)
-tmeansumm1 <- tidy(tmeanlm)
+#2. observation
+ggplot(earlyPhen.obs, aes(x = year, y = ordinal_date)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
+  #scale_color_manual(values=siteCols) +
+  labs(title = "Earliest iNat dates over time",
+       x = "Year",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() 
 
-print(tmeanlm)
-print(tmeansumm1)
-
-
-
-
-###########
-###To use the PRISM API and download via R, you need to define the directories the first time you use it:
-#Specify where raster layers will go
-options(prism.path="/Users/elizabethlombardi/Desktop/PRISM/Erin_PhenologyProject")
-#Set folder for where PRISM layer downloads go
-prism_set_dl_dir("/Users/elizabethlombardi/Desktop/PRISM/Erin_PhenologyProject") 
-
-#After that first time, you can check to see what data you have in your folders already:
-#check out the list of rasters I now have
-prism_archive_ls()
-prism_get_dl_dir()
+ggplot(earlyPhen.obs, aes(x = year, y = ordinal_date, color=site)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=siteCols) +
+  labs(title = "Earliest iNat dates over time",
+       x = "Year",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
 
 
-#IF you don't have any data in your archive folder already 
-# Download the 30-year annual average precip and annual average temperature
-get_prism_monthlys(type = "ppt", years = 2019:2020, mon = 1:12, keepZip = TRUE)
+#stats
+lm.herb <- lm(ordinal_date ~ year, data = earlyPhen, subset = (data_type == "specimen"))
+lm.obs <- lm(ordinal_date ~ year, data = earlyPhen, subset = (data_type == "observation"))
 
-get_prism_normals("ppt", "4km", annual = TRUE, keepZip = FALSE)
-get_prism_normals("tmean", "4km", annual = TRUE, keepZip = FALSE)
-
-###
-get_prism_normals(
-  type = "tmean", 
-  resolution = "4km", 
-  mon = 1:12, 
-  annual = TRUE,
-  keepZip = FALSE
-)
-
-# Grab the prism data and compile the files into a raster stack (precip and temp) for pikes peak (PP) and mount blue sky (MBS)
-climate_data <- prism_archive_ls() %>%  
-  pd_stack(.)  
-
-climate_data_pp<-crop(climate_data, pp.aoi) #clip to just Pikes Peak
-climate_data_mbs <- crop(climate_data, MBS) #clip to just Mount Blue Sky
+summary(lm.herb)
+summary(lm.obs)
 
 
 
 
 
-
-
-
-# Extract project coordinates from raster stack
-climate_crs <- climate_data@crs@projargs
-
-# Convert collection locations to format and projection that matches prism data
-# make spatial
-env.v <- env.v %>% 
-  mutate_at(c("decimalLongitude", "decimalLatitude", "id"), as.numeric) %>%
-  st_as_sf(coords=c("decimalLongitude","decimalLatitude"), crs=CRS(climate_crs), remove=FALSE) %>%
-  as.data.frame(.) 
-
-coordinates(env.v) <- c('decimalLongitude', 'decimalLatitude')
-proj4string(env.v) <- CRS(climate_crs)
-
-
-# Extract the data from the raster stack for those sites 
-prism.df <- data.frame(coordinates(env.v), 
-                       env.v$id,
-                       extract(climate_data, env.v))
-
-
-
-#rename columns with annual mean precip and temp values for each row
-prism.df <- prism.df %>% #includes provisional 2022 data
-  #  mutate_at(c("env.coords.id"), as.numeric) %>%
-  rename("precip30yr" = "PRISM_ppt_30yr_normal_4kmM4_annual_bil") %>% 
-  rename("temp30yr" = "PRISM_tmean_30yr_normal_4kmM4_annual_bil") %>%
-  rename("prismLong" = "decimalLongitude") %>%
-  rename("prismLat" = "decimalLatitude")
-
-
-#convert env.v back to dataframe
-env.v <- as.data.frame(env.v)
-
-#join prism.means with env.v using id columns DUPLICATES!! 3972 duplicated records because of many-to-many match here. 
-env.v <- left_join(env.v, prism.df, by=(c("id"="env.v.id"))) #this joins PRISM 30-year normals to env.v dataframe, and also two new lat/long columns. Useful to make sure the abiotic data line up with the right collections.

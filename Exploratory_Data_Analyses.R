@@ -10,8 +10,6 @@ library(viridis)
 library(khroma)
 
 
-#define color palette
-siteCols = c("#4477AA", "#EE6677") #MBS is blue, PP is red
 
 #Load data in CSV format. Check to see if it's the most up to date version with Erin. 
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_sorted.csv", header=TRUE) 
@@ -22,8 +20,10 @@ names(phen)
 #Or load the data stack
 load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
 
-#define color palette, as discussed with Erin. Green indicates Pikes Peak, Purple indicates Mt. Blue Sky
-colors = (c("#D86FEF", "#0DA907"))
+
+#define color palettes
+siteCols = c("#4477AA", "#EE6677") #MBS is blue, PP is red
+dataCols = c("#AA3377", "#CCBB44") #observation is maroon, specimen is gold
 
 
 #some of the values are integers but should be numeric
@@ -115,19 +115,22 @@ siteFig2.spp <- ggplot(phen, aes(x = ordinal_date, y = site)) +
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/siteFig2.png", siteFig2, width = 10, height = 5, dpi = 300)
 
 
+
+#######
 #geomridges comparing mean flowering time across species over time
-sppRidges<-ggplot(phen, aes(x = ordinal_date, y = scientific_name, fill=factor(site))) + 
-  geom_density_ridges(alpha=0.4) +
+sppRidges<-ggplot(phen, aes(x = ordinal_date, y = scientific_name, fill=factor(data_type))) + 
+  geom_density_ridges(alpha=0.5) +
   theme_minimal() +
   theme(legend.position = "top") +
-  scale_fill_manual(values = colors)
+  scale_fill_manual(values = dataCols)
 
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/sppRidges.png", sppRidges, width = 10, height = 5, dpi = 300)
 
 
+
 ###############################################
 #are there statistical differences? 
-#In order to say anything about phenology or phenological shifts, we need quantitiative tests (statistical tests)
+#In order to say anything about phenology or phenological shifts, we need quantitative tests (statistical tests)
 
 #1.Basic ANOVA for mean flowering time across sites
 anova1 <- aov(ordinal_date ~ site, data=phen)
@@ -211,7 +214,7 @@ corrPlot1 <- ggplot(earlyPhen, aes(x = year, y = ordinal_date)) +
   labs(title = "Correlation between Earliest Ordinal Date and Year for all records",
        x = "Year",
        y = "Earliest Ordinal Date") +
-  theme_minimal()
+  theme_minimal() 
 
 # Run linear regression and print summary
 rm1 <- lm(ordinal_date ~ year, data = earlyPhen)
@@ -219,6 +222,7 @@ rsumm1 <- tidy(rm1)
 
 print(corrPlot1)
 print(rsumm1)
+
 
 
 
@@ -232,7 +236,8 @@ corrPlot2 <- ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date)) +
   labs(title = "Correlation between Earliest Ordinal Date and Year (Specimen data only)",
        x = "Year",
        y = "Earliest Ordinal Date") +
-  theme_minimal()
+  theme_minimal() +
+  facet_wrap(~site)
 
 # Run linear regression and print summary
 rm2 <- lm(ordinal_date ~ year, data = earlyPhen.herb)
@@ -240,6 +245,11 @@ rsumm2 <- tidy(rm2)
 
 print(corrPlot2)
 print(rsumm2)
+
+
+#Run mixed effects model to test for significance in herbarium flowering with site as a random effect
+hist(earlyPhen.herb$ordinal_date) #this is fine; the only continuous variable, really
+hist(earlyPhen.herb$year) #this is...a bit skewed. Maybe transform but maybe it'll be okay for specimen data
 
 
 #iii. Only specimen data
