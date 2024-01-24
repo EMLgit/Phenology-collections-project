@@ -114,25 +114,8 @@ weibDF <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology
 
 ggplot(weibDF, aes(x = estimate, y = species, color = species)) +
   geom_point() +  # Scatter plot
-  labs(x = "Numeric Variable 1", y = "Numeric Variable 2", color = "Category") +  # Set axis labels and color legend title
-  ggtitle("Scatter Plot of Numeric Variable 1 vs. Numeric Variable 2 by Category")  # Set plot title
+  labs(x = "Estimated earliest flowering date", y = "Species") 
 
-
-inat <-phen2 %>%
-  filter(data_type=="obs")
-herb <- phen2 %>%
-  filter(data_type =="herb")
-erin <- phen2 %>%
-  filter(source == "Berkowitz")
-
-weib.limit(x=c(inat$ordinal.date), k=30, upper=FALSE, alpha = 0.05) 
-weib.limit(x=c(herb$ordinal.date), k=30, upper=FALSE, alpha = 0.05) 
-weib.limit(x=c(erin$ordinal.date), k=30, upper=FALSE, alpha = 0.05) 
-
-
-min(inat$ordinal.date)
-min(herb$ordinal.date)
-min(erin$ordinal.date)
 
 
 ###Can I just group and calculate?
@@ -156,8 +139,9 @@ spp2 <- weibDF2 %>%
 spp3 <- weibDF3 %>%
   group_by(scientific_name, weib.spp) %>%
   summarize()
+
 spp4<-weibDF %>%
-  group_by(scientific_name) %>%
+  group_by(species) %>%
   summarise(obs.min = min(ordinal_date))
 
   
@@ -169,12 +153,18 @@ weib.spp <- spp1 %>%
   left_join(spp4, by="scientific_name")
 
 write.csv(weib.spp, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/WeibullEstimations_speciesTable.csv", row.names = TRUE)
-         
+weib.spp <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/WeibullEstimations_speciesTable.csv", header=TRUE)
+
 
 # Reshape data from wide to long format
 weibSpp_long<- tidyr::gather(weib.spp, "Metric", "Value", -scientific_name, -obs.min)
 
-ggplot(weibSpp_long, aes(x = Value, y = scientific_name, color = Metric, shape = Metric)) +
+weibSpp_long <- weib.spp %>%
+  dplyr::select(-X) %>%
+  gather("Metric", "Value", -scientific_name, -obs.min)
+
+weibSpp.1<-
+  ggplot(weibSpp_long, aes(x = Value, y = scientific_name, color = Metric, shape = Metric)) +
   geom_line(aes(group = scientific_name), size = 1) +  # Line plot
   geom_point(aes(size = Metric), shape=18, alpha=0.7)  +  # Dot plot
   geom_point(aes(x = obs.min, y = scientific_name), shape = 20, size = 2.5, color = "red", alpha=0.5) +  # Red circles for obs.min
@@ -183,6 +173,20 @@ ggplot(weibSpp_long, aes(x = Value, y = scientific_name, color = Metric, shape =
   ggtitle("Estimated vs. Observed Values") + # Set plot title
   theme_bw()  
 
+
+#what happens when I remove castilleja occidentalis?
+weibSpp_long2 <- weibSpp_long %>%
+  filter(!scientific_name =="Castilleja occidentalis")
+
+weibSpp.2 <-
+  ggplot(weibSpp_long2, aes(x = Value, y = scientific_name, color = Metric, shape = Metric)) +
+  geom_line(aes(group = scientific_name), size = 1) +  # Line plot
+  geom_point(aes(size = Metric), shape=18, alpha=0.7)  +  # Dot plot
+  geom_point(aes(x = obs.min, y = scientific_name), shape = 20, size = 2.5, color = "red", alpha=0.5) +  # Red circles for obs.min
+  scale_shape_manual(values = c(1, 1, 1, 1, 5)) +  # Customize point shapes
+  labs(x = "Flowering Date", y = "Species", color = "Metric") +  # Set axis labels and legends
+  ggtitle("Estimated vs. Observed Values") + # Set plot title
+  theme_bw() 
 
 
 
@@ -194,6 +198,16 @@ specimen <- phen2 %>%
   filter(data_type=="specimen")
 inat <- phen2 %>%
   filter(data_type == "observation")
+
+#also give it a go without Castilleja occidentalis; INTERESTINGLY both specimen and observation data have a minimum observed flowering date (across sites/species/years) of ordinal day 152
+specimen <- phen2 %>% 
+  filter(data_type=="specimen") %>%
+  filter(!scientific_name == "Castilleja occidentalis")
+inat <- phen2 %>%
+  filter(data_type == "observation")%>%
+  filter(!scientific_name == "Castilleja occidentalis")
+
+
 
 #Estimate earliest flowering interval for site guilds
 weibHerb <- unname(weib.limit(x=c(specimen$ordinal_date), k=30, upper=FALSE, alpha = 0.05))
@@ -218,9 +232,10 @@ weibDataType_long<- tidyr::gather(weibDataType, "Metric", "Value", -type, -obs.m
 
 ggplot(weibDataType_long, aes(x = Value, y = type, color = type, shape = Metric)) +
   geom_line(aes(group = type), size = 1) +  # Line plot
-  geom_point(aes(size = Metric), shape=18, alpha=0.5)  +  # Dot plot
-  geom_point(aes(x = obs.mins, y = type), shape = 20, size = 2.5, color = "red", alpha=0.5) +  # Red circles for obs.min
-  scale_color_manual(values = c("darkslategrey", "darkslategrey")) +
+  scale_color_manual(values = dataCols) +
+  geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(x = obs.mins, y = type), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +  #circles for observed
+  #scale_color_manual(values = c("darkslategrey", "darkslategrey")) +
   #scale_shape_manual(values = c(1, 1, 1, 1, 5)) +  # Customize point shapes
   #geom_point(aes(x=Value, y=guild, size = factor(obs.mins)), shape = 5, color = "darkslategrey") +  # Additional point shape with SingleValue
   #geom_point( aes(size = factor(obs.mins)), color = "black") +  # Additional point shape with SingleValue
