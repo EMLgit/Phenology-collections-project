@@ -164,14 +164,16 @@ weibSpp_long <- weib.spp %>%
   gather("Metric", "Value", -scientific_name, -obs.min)
 
 weibSpp.1<-
-  ggplot(weibSpp_long, aes(x = Value, y = scientific_name, color = Metric, shape = Metric)) +
+  ggplot(weibSpp_long, aes(x = Value, y = scientific_name, shape = Metric)) +
   geom_line(aes(group = scientific_name), size = 1) +  # Line plot
-  geom_point(aes(size = Metric), shape=18, alpha=0.7)  +  # Dot plot
-  geom_point(aes(x = obs.min, y = scientific_name), shape = 20, size = 2.5, color = "red", alpha=0.5) +  # Red circles for obs.min
+  geom_point(aes(size = Metric), shape=21, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(x = obs.min, y = scientific_name), shape = 21, size = 2.5, color = "darkslategrey", fill="#66CCEE", alpha=0.5) +  # Red circles for obs.min
+  #geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  #geom_point(aes(x = obs.mins, y = scientific_name), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +
   scale_shape_manual(values = c(1, 1, 1, 1, 5)) +  # Customize point shapes
   labs(x = "Flowering Date", y = "Species", color = "Metric") +  # Set axis labels and legends
   ggtitle("Estimated vs. Observed Values") + # Set plot title
-  theme_bw()  
+  theme_bw() 
 
 
 #what happens when I remove castilleja occidentalis?
@@ -179,10 +181,12 @@ weibSpp_long2 <- weibSpp_long %>%
   filter(!scientific_name =="Castilleja occidentalis")
 
 weibSpp.2 <-
-  ggplot(weibSpp_long2, aes(x = Value, y = scientific_name, color = Metric, shape = Metric)) +
+  ggplot(weibSpp_long2, aes(x = Value, y = scientific_name, shape = Metric)) +
   geom_line(aes(group = scientific_name), size = 1) +  # Line plot
-  geom_point(aes(size = Metric), shape=18, alpha=0.7)  +  # Dot plot
-  geom_point(aes(x = obs.min, y = scientific_name), shape = 20, size = 2.5, color = "red", alpha=0.5) +  # Red circles for obs.min
+  geom_point(aes(size = Metric), shape=21, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(x = obs.min, y = scientific_name), shape = 21, size = 2.5, color = "darkslategrey", fill="#66CCEE", alpha=0.5) +  # Red circles for obs.min
+  #geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  #geom_point(aes(x = obs.mins, y = scientific_name), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +
   scale_shape_manual(values = c(1, 1, 1, 1, 5)) +  # Customize point shapes
   labs(x = "Flowering Date", y = "Species", color = "Metric") +  # Set axis labels and legends
   ggtitle("Estimated vs. Observed Values") + # Set plot title
@@ -233,8 +237,9 @@ weibDataType_long<- tidyr::gather(weibDataType, "Metric", "Value", -type, -obs.m
 ggplot(weibDataType_long, aes(x = Value, y = type, color = type, shape = Metric)) +
   geom_line(aes(group = type), size = 1) +  # Line plot
   scale_color_manual(values = dataCols) +
-  geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
-  geom_point(aes(x = obs.mins, y = type), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +  #circles for observed
+  geom_point(aes(size = Metric, fill=type), shape=23, color="darkslategrey", alpha=0.8)  +  # Dot plot
+  scale_fill_manual(values = dataCols) +
+  geom_point(aes(x = obs.mins, y = type), shape = 21, size = 4, color="darkslategrey", fill = "#66CCEE", alpha=0.5) +  #circles for observed minimum flowering dates
   #scale_color_manual(values = c("darkslategrey", "darkslategrey")) +
   #scale_shape_manual(values = c(1, 1, 1, 1, 5)) +  # Customize point shapes
   #geom_point(aes(x=Value, y=guild, size = factor(obs.mins)), shape = 5, color = "darkslategrey") +  # Additional point shape with SingleValue

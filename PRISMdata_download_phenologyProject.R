@@ -331,6 +331,36 @@ ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date, color=site)) +
   theme_minimal() +
   facet_wrap(~ site, scales = "free_x")
 
+#check for significance
+
+herb.mbslm2 <- lm(ordinal_date ~ year, data = earlyPhen.herb, subset = (site == "MBS"))
+herb.pplm2 <- lm(ordinal_date ~ year, data = earlyPhen.herb, subset = (site == "PP"))
+
+summary(herb.mbslm2)
+summary(herb.pplm2)
+
+
+###ALL herbarium data over time
+ggplot(specimen, aes(x = year, y = ordinal_date, color=site)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=siteCols) +
+  labs(title = "All herbarium dates over time",
+       x = "Year",
+       y = "Ordinal Date") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+#check for significance
+
+herb.mbslm <- lm(ordinal_date ~ year, data = specimen, subset = (site == "MBS"))
+herb.pplm <- lm(ordinal_date ~ year, data = specimen, subset = (site == "PP"))
+
+summary(herb.mbslm)
+summary(herb.pplm)
+
+
+
 
 #2. observation
 ggplot(earlyPhen.obs, aes(x = year, y = ordinal_date)) +
@@ -351,6 +381,29 @@ ggplot(earlyPhen.obs, aes(x = year, y = ordinal_date, color=site)) +
        y = "Earliest Ordinal Date") +
   theme_minimal() +
   facet_wrap(~ site, scales = "free_x")
+
+obs.mbslm2 <- lm(ordinal_date ~ year, data = earlyPhen.obs, subset = (site == "MBS"))
+obs.pplm2 <- lm(ordinal_date ~ year, data = earlyPhen.obs, subset = (site == "PP"))
+
+summary(obs.mbslm2)
+summary(obs.pplm2)
+
+###All specimen data
+ggplot(inat, aes(x = year, y = ordinal_date, color=site)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=siteCols) +
+  labs(title = "All iNat dates over time",
+       x = "Year",
+       y = "All Ordinal Dates") +
+  theme_minimal() +
+  facet_wrap(~ site, scales = "free_x")
+
+obs.mbslm <- lm(ordinal_date ~ year, data = inat, subset = (site == "MBS"))
+obs.pplm <- lm(ordinal_date ~ year, data = inat, subset = (site == "PP"))
+
+summary(obs.mbslm)
+summary(obs.pplm)
 
 
 #stats
