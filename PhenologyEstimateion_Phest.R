@@ -166,7 +166,7 @@ weibSpp_long <- weib.spp %>%
 weibSpp.1<-
   ggplot(weibSpp_long, aes(x = Value, y = scientific_name, shape = Metric)) +
   geom_line(aes(group = scientific_name), size = 1) +  # Line plot
-  geom_point(aes(size = Metric), shape=21, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
   geom_point(aes(x = obs.min, y = scientific_name), shape = 21, size = 2.5, color = "darkslategrey", fill="#66CCEE", alpha=0.5) +  # Red circles for obs.min
   #geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
   #geom_point(aes(x = obs.mins, y = scientific_name), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +
@@ -183,7 +183,7 @@ weibSpp_long2 <- weibSpp_long %>%
 weibSpp.2 <-
   ggplot(weibSpp_long2, aes(x = Value, y = scientific_name, shape = Metric)) +
   geom_line(aes(group = scientific_name), size = 1) +  # Line plot
-  geom_point(aes(size = Metric), shape=21, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
   geom_point(aes(x = obs.min, y = scientific_name), shape = 21, size = 2.5, color = "darkslategrey", fill="#66CCEE", alpha=0.5) +  # Red circles for obs.min
   #geom_point(aes(size = Metric), shape=23, color="darkslategrey", fill="lightgrey", alpha=0.8)  +  # Dot plot
   #geom_point(aes(x = obs.mins, y = scientific_name), shape = 21, size = 4, color="darkslategrey", fill = "lightblue", alpha=0.5) +
@@ -234,10 +234,10 @@ weibDataType <- cbind(rows, weibDataType, mins) #Use this later
 # Reshape data from wide to long format
 weibDataType_long<- tidyr::gather(weibDataType, "Metric", "Value", -type, -obs.mins)
 
-ggplot(weibDataType_long, aes(x = Value, y = type, color = type, shape = Metric)) +
+weibplot.DataType<-ggplot(weibDataType_long, aes(x = Value, y = type, shape = Metric)) +
   geom_line(aes(group = type), size = 1) +  # Line plot
   scale_color_manual(values = dataCols) +
-  geom_point(aes(size = Metric, fill=type), shape=23, color="darkslategrey", alpha=0.8)  +  # Dot plot
+  geom_point(aes(size = Metric), shape=23, fill="lightgrey", color="darkslategrey", alpha=0.8)  +  # Dot plot
   scale_fill_manual(values = dataCols) +
   geom_point(aes(x = obs.mins, y = type), shape = 21, size = 4, color="darkslategrey", fill = "#66CCEE", alpha=0.5) +  #circles for observed minimum flowering dates
   #scale_color_manual(values = c("darkslategrey", "darkslategrey")) +
@@ -248,6 +248,7 @@ ggplot(weibDataType_long, aes(x = Value, y = type, color = type, shape = Metric)
   ggtitle("Estimated vs. Observed Values") + # Set plot title
   theme_bw()
 
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/weib_dataType_revised.png", weibplot.DataType, width = 10, height = 5, dpi = 300)
 
 
 
@@ -348,22 +349,50 @@ summary(ann.lm3) #slope = -0.10480
 ann.lm4 <- glm(ordinal_date~year, data=earlyPhen.obs)
 summary(ann.lm4) #slop= -1.2213
 
+
 ####Revise previous plot to examine estimated versus observed earliest flowering over time, but compare by data type
 ###TRY making a single plot with points and regression lines for all, specimen and observation data [all estimated using Weibull]
 ann.all <- ggplot(annualMins, aes(x=year, y=estimate)) +
-  geom_point(alpha=.8, color="darkslategrey") +
+  geom_point(alpha=.8, shape=23, fill="lightgrey", color="darkslategrey", size=2.5) +
+  #(aes(size = Metric), shape=23, fill="lightgrey", color="darkslategrey", alpha=0.8)
   geom_smooth(method ="glm", se=FALSE, color="darkslategrey", linetype="dashed") +
   theme_minimal()
 
 #compare best estimated earliest flowering (all data) to observed earliest flowering for observation vs specimen data_types
 ann.all2 <- ann.all +
-  geom_point(data = earlyPhen.herb, aes(x = year, y = ordinal_date), alpha = 0.4, color = "skyblue") +
+  geom_point(data = earlyPhen.herb, aes(x = year, y = ordinal_date), alpha = 0.4, color = "skyblue", size=2.5) +
   geom_smooth(data = earlyPhen.herb, aes(x = year, y = ordinal_date), method="glm", se=FALSE, color="skyblue")
 
 
 ann.all3 <- ann.all2 +
-  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.4, color="goldenrod3") +
+  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.5, color="goldenrod3", size=2.5) +
   geom_smooth(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), method="lm", se=FALSE, color="goldenrod3")
+
+
+###Reorder so that the estimate diamonds are easier to see
+
+ann<- ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date)) +
+  geom_point(alpha = 0.4, color = "skyblue", size=2.5) +
+  geom_smooth(data = earlyPhen.herb, aes(x = year, y = ordinal_date), method="lm", se=FALSE, color="skyblue") +
+  theme_bw()
+
+ann2 <- ann +
+  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.5, color="goldenrod3", size=2.5) +
+  geom_smooth(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), method="lm", se=FALSE, color="goldenrod3")
+
+ann.final <- ann2 +
+  geom_point(data=annualMins, aes(x=year, y=estimate), alpha=.8, shape=23, fill="lightgrey", color="darkslategrey", size=2.5) +
+  geom_smooth(data=annualMins, aes(x=year, y=estimate), method ="lm", se=FALSE, color="darkslategrey", linetype="dashed") +
+  labs(y="Ordinal Date", 
+       x="Year" )
+
+
+#save the plot
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/weibDataType_historicOverall.png", ann.final, width = 10, height = 5, dpi = 300)
+
+
+###statistical differences between herb, obs and estimated ordinal dates over time
+
 
 
 
