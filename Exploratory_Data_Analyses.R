@@ -23,7 +23,7 @@ load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Pheno
 
 #define color palettes
 siteCols = c("#4477AA", "#EE6677") #MBS is blue, PP is red
-dataCols = c("#AA3377", "#CCBB44") #observation is maroon, specimen is gold
+dataCols = c( "#CCBB44", "#AA3377") #observation is maroon, specimen is gold
 
 
 #some of the values are integers but should be numeric

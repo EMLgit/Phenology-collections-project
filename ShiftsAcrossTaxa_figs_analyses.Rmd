@@ -134,9 +134,9 @@ minSpec<- minSpec%>%
   group_by(scientific_name) %>%
   mutate(slope = coef(glm(minDate ~ year))[2])
 
-ggplot(minSpec, aes(x = year, y = minDate)) +
+herb.spp<-ggplot(minSpec, aes(x = year, y = minDate)) +
   geom_point(outlier.shape = NA) +
-  geom_smooth(method = "glm", se = FALSE, color="skyblue3") +
+  geom_smooth(method = "glm", se = FALSE, color="#CCBB44") +
   geom_text(data = minSpec %>% slice(1),  # Take the first row for each species
             aes(label = paste("Slope:", round(slope, 3))),
             x = Inf, y = Inf, hjust = 1, vjust = 1,
@@ -150,6 +150,7 @@ ggplot(minSpec, aes(x = year, y = minDate)) +
   theme(legend.position = "top") +
   scale_fill_manual(values=colors) +
   facet_wrap(~scientific_name)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/earliestSpecies_herbarium.png", herb.spp, width = 10, height = 5, dpi = 300)
 
 
 
@@ -171,7 +172,7 @@ minSpec.Decade <- minSpec.Decade %>%
 
 ggplot(minSpec.Decade, aes(x = decade, y = minDate)) +
   geom_point(outlier.shape = NA) +
-  geom_smooth(method = "glm", se = FALSE, color="skyblue3") +
+  geom_smooth(method = "glm", se = FALSE, color="#CCBB44") +
 geom_text(data = minSpec.Decade %>% slice(1),  # Take the first row for each species
             aes(label = paste("Slope:", round(slope, 3))),
             x = Inf, y = Inf, hjust = 1, vjust = 1,
@@ -238,9 +239,9 @@ minObs<- minObs%>%
   group_by(scientific_name) %>%
   mutate(slope = coef(glm(minDate ~ year))[2])
 
-ggplot(minObs, aes(x = year, y = minDate)) +
+inat.spp<-ggplot(minObs, aes(x = year, y = minDate)) +
   geom_point(outlier.shape = NA) +
-  geom_smooth(method = "glm", se = FALSE, color="goldenrod3") +
+  geom_smooth(method = "glm", se = FALSE, color="#AA3377") +
   geom_text(data = minObs %>% slice(1),  # Take the first row for each species
             aes(label = paste("Slope:", round(slope, 3))),
             x = Inf, y = Inf, hjust = 1, vjust = 1,
@@ -255,6 +256,7 @@ ggplot(minObs, aes(x = year, y = minDate)) +
   scale_fill_manual(values=colors) +
   facet_wrap(~scientific_name)
 
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/earliestSpecies_inat.png", inat.spp, width = 10, height = 5, dpi = 300)
 
 
 ####DECADAL change
@@ -275,7 +277,7 @@ minObs.Decade <- minObs.Decade %>%
 
 ggplot(minObs.Decade, aes(x = decade, y = minDate)) +
   geom_point(outlier.shape = NA) +
-  geom_smooth(method = "glm", se = FALSE, color="goldenrod3") +
+  geom_smooth(method = "glm", se = FALSE, color="#AA3377") +
 geom_text(data = minObs.Decade %>% slice(1),  # Take the first row for each species
             aes(label = paste("Slope:", round(slope, 3))),
             x = Inf, y = Inf, hjust = 1, vjust = 1,

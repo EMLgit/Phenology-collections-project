@@ -234,7 +234,7 @@ weibDataType <- cbind(rows, weibDataType, mins) #Use this later
 # Reshape data from wide to long format
 weibDataType_long<- tidyr::gather(weibDataType, "Metric", "Value", -type, -obs.mins)
 
-weibplot.DataType<-ggplot(weibDataType_long, aes(x = Value, y = type, shape = Metric)) +
+weibplot.DataType<-ggplot(weibDataType_long, aes(x = Value, y = type, shape = Metric, color=type)) +
   geom_line(aes(group = type), size = 1) +  # Line plot
   scale_color_manual(values = dataCols) +
   geom_point(aes(size = Metric), shape=23, fill="lightgrey", color="darkslategrey", alpha=0.8)  +  # Dot plot
@@ -372,13 +372,13 @@ ann.all3 <- ann.all2 +
 ###Reorder so that the estimate diamonds are easier to see
 
 ann<- ggplot(earlyPhen.herb, aes(x = year, y = ordinal_date)) +
-  geom_point(alpha = 0.4, color = "skyblue", size=2.5) +
-  geom_smooth(data = earlyPhen.herb, aes(x = year, y = ordinal_date), method="lm", se=FALSE, color="skyblue") +
+  geom_point(alpha = 0.4, color = "#CCBB44", size=2.5) +
+  geom_smooth(data = earlyPhen.herb, aes(x = year, y = ordinal_date), method="lm", se=FALSE, color="#CCBB44") +
   theme_bw()
 
 ann2 <- ann +
-  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.5, color="goldenrod3", size=2.5) +
-  geom_smooth(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), method="lm", se=FALSE, color="goldenrod3")
+  geom_point(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), alpha=0.5, color="#AA3377", size=2.5) +
+  geom_smooth(data = earlyPhen.obs2, aes(x=year, y=ordinal_date), method="lm", se=FALSE, color="#AA3377")
 
 ann.final <- ann2 +
   geom_point(data=annualMins, aes(x=year, y=estimate), alpha=.8, shape=23, fill="lightgrey", color="darkslategrey", size=2.5) +
