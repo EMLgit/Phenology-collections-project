@@ -14,6 +14,7 @@ library(readxl)
 #Is the original phenology data loaded into your environment?
 head(phen) 
 
+#################################LOAD DATA
 #If not, load it in:
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_colorsEML.csv", header=TRUE) #This is the most up to date as of Jan 1 2024
 
@@ -27,21 +28,22 @@ E.mbs.obs <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_
 E.pp.obs <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_taxa.xlsx", 
                        sheet = "Earliest PP observation")
 
-
-
-#convert the dataframe to an sf object
-phen_sf <- phen %>%
-  filter(!is.na(longitude)) %>%
-  filter(!is.na(latitude)) %>%
-  st_as_sf(coords=c("longitude", "latitude"), crs=4326)
-
-
 #We also need polygons that define the areas of interest (PP and MBS)
 pp.aoi <- st_read("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Site Polygons/PikesPeak_Poly.shp") %>%
   st_transform(4326)
 
 mbs.aoi <- st_read("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Site Polygons/MountEvans_Poly.shp") %>%
   st_transform(4326)
+#################################
+
+
+
+################################# CLEAN DATA IF YOU WANT/NEED TO
+#convert the dataframe to an sf object
+phen_sf <- phen %>%
+  filter(!is.na(longitude)) %>%
+  filter(!is.na(latitude)) %>%
+  st_as_sf(coords=c("longitude", "latitude"), crs=4326)
 
 
 
@@ -51,10 +53,10 @@ dataCols = c("#AA3377", "#CCBB44")
 
 
 
-####Load PRISM data that was downloaded from online site.
+################################# Load PRISM data that was downloaded from online site.
 #these data frame are yearly and monthly averages across the three gridded rasters Erin focused on
 
-#montly precipitation since 1895
+#monthly precipitation since 1895
 mbs.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/MBS_ppt_monthlyMeans.csv", header = TRUE)
 pp.ppt <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PP_ppt_monthlyMeans.csv", header = TRUE)
 
@@ -159,7 +161,7 @@ ggplot(comb.anntmean, aes(x = year, y = summit.tmean)) +
 
 
 
-###JOINING ABIOTIC AND OCCURRENCE DATA
+################################# JOINING ABIOTIC AND OCCURRENCE DATA
 #Note that there are not annual data from PRISM for year 2023, but there are some monthly data for 2023 (months 1 through 9)
 
 ####Join precip and temperature into a dataframe for annual (prism.annual) and monthly(prism.month) data to occurrence data
@@ -274,15 +276,116 @@ ggplot(early.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
   facet_wrap(~ data_type, scales = "free_x")
 
 
-##Earliest data separated by species
-ggplot(E.mbs.obs, aes(x = mean.ppt, y = ordinal_date, color="black")) +
+##################PLOT Earliest data separated by species, site and data type
+
+####PRECIPITATION
+#earliest by species at MBS (observational data)
+eMBSobs <-ggplot(E.mbs.obs, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE) +
-  scale_color_manual(values=dataCols) +
-  labs(title = "Correlation between observed ALL phenology dates and mean annual ppt",
-       x = "Annual Precipitation (inches)",
+  scale_color_manual(values=dataCols[1]) +
+  labs(x = "Annual Precipitation (inches)",
        y = "Earliest Ordinal Date") +
-  theme_minimal() 
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+          legend.position = "none")
+
+#earliest by species at PP (observational data)
+ePPobs<-ggplot(E.pp.obs, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[1]) +
+  labs(x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+       legend.position = "none")
+
+#earliest by species at MBS (herbarium data)
+eMBSspec <-ggplot(E.mbs.spec, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[2]) +
+  labs(x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+#earliest by species at PP (herbarium data)
+ePPspec<-ggplot(E.pp.spec, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[2]) +
+  labs(x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+
+####TEMPERATURE
+#earliest by species at MBS (observational data)
+eMBSobs2 <-ggplot(E.mbs.obs, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[1]) +
+  labs(x = "Annual Temperature (degrees F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+#earliest by species at PP (observational data)
+ePPobs2 <-ggplot(E.pp.obs, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[1]) +
+  labs(x = "Annual Temperature (degrees F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+#earliest by species at MBS (herbarium data)
+eMBSspec2 <-ggplot(E.mbs.spec, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[2]) +
+  labs(x = "Annual Temperature (degrees F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+#earliest by species at PP (herbarium data)
+ePPspec2 <-ggplot(E.pp.spec, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols[2]) +
+  labs(x = "Annual Temperature (degrees F)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() +
+  theme(panel.background = element_blank(),
+        legend.position = "none")
+
+
+
+###########################SAVE THE PLOTS AS PNG FILES
+
+#PRECIP PLOTS
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/eMBSobs.png", eMBSobs, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/ePPobs.png", ePPobs, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/eMBSspec.png", eMBSspec, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/ePPspec.png", ePPspec, width = 8, height = 6, units="in", dpi = 300)
+
+#TEMPERATURE PLOTS
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/eMBSobs2.png", eMBSobs2, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/ePPobs2.png", ePPobs2, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/eMBSspec2.png", eMBSspec2, width = 8, height = 6, units="in", dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/ePPspec2.png", ePPspec2, width = 8, height = 6, units="in", dpi = 300)
+
+
 
 
 # Run linear regression and print summaries
