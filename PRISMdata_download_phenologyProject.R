@@ -9,12 +9,25 @@ library(sf)
 library(terra)
 library(raster)
 library(prism)
+library(readxl)
 
 #Is the original phenology data loaded into your environment?
 head(phen) 
 
 #If not, load it in:
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_colorsEML.csv", header=TRUE) #This is the most up to date as of Jan 1 2024
+
+#Also load the earliest dataframes from the Excel workbook that Erin made:
+E.mbs.spec <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_taxa.xlsx", 
+                         sheet = "Earliest MBS specimen ")
+E.pp.spec <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_taxa.xlsx", 
+                           sheet = "Earliest PP specimen")
+E.mbs.obs <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_taxa.xlsx", 
+                        sheet = "Earliest MBS observation")
+E.pp.obs <- read_excel("~/Desktop/Research/UNM/Erin phenology project/Earliest_taxa.xlsx", 
+                       sheet = "Earliest PP observation")
+
+
 
 #convert the dataframe to an sf object
 phen_sf <- phen %>%
@@ -165,6 +178,7 @@ early.annual <-merge(earlyPhen, prism.annual, by=c("year", "site"))
 #check to see what didn't merge
 check<-anti_join(earlyPhen, early.annual) #these are the records from too recent or too long ago to have associated PRISM data. Could add 2023
 
+#monthly
 early.monthly <- merge(earlyPhen, prism.month, by=c("year", "site")) #this is the earlyPhen data and each of the earliest records has 12 rows of abiotic data from that year
 
 
@@ -176,6 +190,18 @@ check<-anti_join(phen2, full.annual) #all are records that fall outside of the 1
 #monthly
 full.monthly <- merge(phen2, prism.month, by=c("year", "site")) 
 
+
+#iii. Earliest phenology by species, site and data type
+#Create full datasets of all E.site.datatype sheets occurrences with associated annual and monthly abiotic data
+E.mbs.obs <-merge(E.mbs.obs, prism.annual, by=c("year", "site"))
+E.mbs.spec <-merge(E.mbs.spec, prism.annual, by=c("year", "site"))
+
+E.pp.obs <-merge(E.pp.obs, prism.annual, by=c("year", "site"))
+E.pp.spec <-merge(E.pp.spec, prism.annual, by=c("year", "site"))
+
+
+#check to see what didn't merge
+check<-anti_join(E.mbs.obs, prism.annual, by=c("year", "site")) #these are the records from too recent or too long ago to have associated PRISM data. Could add 2023
 
 
 
@@ -205,6 +231,8 @@ ggplot(full.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
   facet_wrap(~ data_type, scales = "free_x")
 
 #ii. plot earliest flowering dataset
+
+#Part A: original plots that don't totally make sense (it's all earliest phenology data without separating by species)
 ggplot(early.annual, aes(x = mean.ppt, y = ordinal_date)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE, color="darkslategrey") +
@@ -245,6 +273,16 @@ ggplot(early.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
   theme_minimal() +
   facet_wrap(~ data_type, scales = "free_x")
 
+
+##Earliest data separated by species
+ggplot(E.mbs.obs, aes(x = mean.ppt, y = ordinal_date, color="black")) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(values=dataCols) +
+  labs(title = "Correlation between observed ALL phenology dates and mean annual ppt",
+       x = "Annual Precipitation (inches)",
+       y = "Earliest Ordinal Date") +
+  theme_minimal() 
 
 
 # Run linear regression and print summaries
