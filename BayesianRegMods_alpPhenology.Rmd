@@ -1,0 +1,103 @@
+---
+title: "alpinePhenology_Bayes"
+author: "emlombardi"
+date: "2024-05-08"
+output: html_document
+---
+
+# Introduction
+This is a script to create and run new analyses for Erin's phenology project. Specifically, these are the models we will work on for the manuscript. The goal is to model flowering date over time for each of the different species with specific relationships (hypothetical) to variables like precipitation, temperature, year, site, etc. 
+
+Resources that may be useful:
+https://m-clark.github.io/mixed-models-with-R/bayesian.html
+https://mc-stan.org/rstanarm/
+
+```{r libraries}
+#Install as needed
+install.packages("rstanarm")
+install.packages("bayesplot")
+
+#Load libraries
+library(ggplot2)
+library(bayesplot)
+library(rstanarm)
+library(lme4)
+
+
+
+
+#Load datastack
+load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
+
+```
+
+#Models
+
+##Basic linear models (frequentist)
+First, let's build some basic linear models to explore the data
+
+### linear model minimum ordinal date/year for each species
+This is the most basic version. Is there are relationship between earliest observation for each species across the history of the sites? 
+
+```{r}
+
+#each species
+spp <- unique(phen$scientific_name) #15 unique species in the dataset
+lm_models <- list()
+
+# Loop over each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen, spp == i)
+  
+  #aggregate to find minimum date for each species in each year
+  min_data <- aggregate(ordinal_date ~ year, data = subset_data, FUN = min)
+  
+  # Lm for minimum ordinal date each year for each species
+  lm_model <- lm(ordinal_date ~ year, data = min_data)
+  
+  # Store the lm model in the list with species name as key
+  lm_models[[i]] <- lm_model
+}
+
+summary(lm_models$`Polemonium viscosum`)
+summary(lm_models)
+str(lm_models)
+class(lm_models) #lm_models is a recursive list
+
+
+
+##Extract the relevant elements for each species
+model_summaries_lm <- data.frame(Species = character(), 
+                              Coefficients = character(),
+                              Std_Errors = numeric(),
+                              t_Values = numeric(),
+                              p_Values = numeric(),
+                              stringsAsFactors = FALSE)
+
+for (i in spp) {
+  # Extract summary information from the linear model
+  summary_info <- summary(lm_models[[i]])
+  
+  # Extract coefficients, standard errors, t-values, and p-values
+  coefficients <- summary_info$coefficients[, 1]
+  std_errors <- summary_info$coefficients[, 2]
+  t_values <- summary_info$coefficients[, 3]
+  p_values <- summary_info$coefficients[, 4]
+  
+  # Create a data frame with the extracted information
+  species_summary <- data.frame(Species = i,
+                                Coefficients = rownames(summary_info$coefficients),
+                                Std_Errors = std_errors,
+                                t_Values = t_values,
+                                p_Values = p_values,
+                                stringsAsFactors = FALSE)
+  
+  # Append the species summary to the model_summaries data frame
+  model_summaries_lm <- rbind(model_summaries_lm, species_summary)
+}
+
+print(model_summaries_lm) #this is the basic linear model looking at the minimum ordinal date per species per year over time
+write.csv(model_summaries_lm, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_lm.csv")
+
+```
