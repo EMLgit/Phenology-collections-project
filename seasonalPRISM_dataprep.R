@@ -15,6 +15,10 @@ mbs.ppt <- read.csv("~/Desktop/Research/UNM/Erin phenology project/MBS_ppt_month
 names(pp.temp)
 names(mbs.temp)
 
+#Also load phenology data for later
+phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_sorted.csv", header=TRUE) #I added a new column ("data_type") and renamed the CSV
+
+
 
 #Merge for each variable
 temp <- rbind(pp.temp, mbs.temp)
@@ -102,6 +106,23 @@ df.shift <- df.shift %>%
 
 df.shift<-df.shift %>%
   select(-seasonYear.y, -season_label)
+
+#TEMP of spring of collection year? NOT WORKING YET
+tempshifted <- df.shift %>%
+  group_by(season_label.x, site, seasonYear) %>%
+  summarise(mean_temp_mean = mean(tmean.avg, na.rm = TRUE)) %>%
+  mutate(seasonYear.shifted = seasonYear + 1)
+
+tempshifted.spring <- tempshifted %>%
+  filter(str_detect(season_label.x.y, "^spring\\d+"))
+
+df.shift <- df.shift %>% 
+  left_join(tempshifted.spring, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(prevSpringTemp = mean_temp_mean)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season_label)
+
 
 
 #UPDATE main dataframe to include abiotic columsn from previous year: THIS IS WHAT GOES TO THE BAYESIAN MODELING SCRIPT
