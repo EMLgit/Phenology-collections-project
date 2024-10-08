@@ -1,0 +1,15 @@
+effect,component,term,estimate,std.error,conf.low,conf.high,species,significant
+fixed,cond,(Intercept),664.0381439,240.2201582,202.1765187,1133.574682,Cherleria obtusiloba,TRUE
+fixed,cond,year,-0.238727174,0.119915813,-0.473753838,-0.006791107,Cherleria obtusiloba,TRUE
+fixed,cond,(Intercept),415.2401806,180.2567616,64.26669323,771.2664918,Primula angustifolia,TRUE
+fixed,cond,(Intercept),917.0478876,231.9281628,463.7324267,1381.813013,Bistorta bistortoides,TRUE
+fixed,cond,year,-0.353946675,0.115681912,-0.587548448,-0.127288639,Bistorta bistortoides,TRUE
+fixed,cond,(Intercept),602.7346072,220.8489503,181.9450656,1027.452124,Trifolium nanum,TRUE
+fixed,cond,year,-0.211156089,0.109767699,-0.423441237,-0.002178626,Trifolium nanum,TRUE
+fixed,cond,(Intercept),563.0464007,227.0213123,103.7303741,1010.68048,Pedicularis groenlandica,TRUE
+fixed,cond,(Intercept),790.2961116,271.6357843,260.5087445,1319.554867,Gentiana algida,TRUE
+fixed,cond,year,-0.286825527,0.136078794,-0.551860831,-0.021115736,Gentiana algida,TRUE
+fixed,cond,(Intercept),485.9300228,238.7774473,16.39403053,949.4842262,Trifolium dasyphyllum,TRUE
+fixed,cond,(Intercept),1039.400585,220.9461956,593.692445,1481.639697,Artemisia scopulorum,TRUE
+fixed,cond,year,-0.425363936,0.110186999,-0.645263809,-0.206734929,Artemisia scopulorum,TRUE
+fixed,cond,(Intercept),539.0582393,194.0636886,151.5025676,917.0730015,Hymenoxys grandiflora,TRUE

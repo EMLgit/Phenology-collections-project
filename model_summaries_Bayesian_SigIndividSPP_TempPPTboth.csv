@@ -1,0 +1,21 @@
+,Species,Term,Estimate,Std. Error,CI (low),CI (high),Significant,,,,,,
+,Primula angustifolia,(Intercept),366.0129309,161.2947588,58.91549398,685.1736336,TRUE,,,,,,
+,Primula angustifolia,tmean.avg,1.922409582,0.623560329,0.695223355,3.151712218,TRUE,,,,,,
+,Bistorta bistortoides,(Intercept),935.8436276,240.3314428,462.1116257,1384.718863,TRUE,,,,,,
+,Bistorta bistortoides,year,-0.342560907,0.120188327,-0.566062932,-0.107001536,TRUE,,,,,,
+,Trifolium nanum,(Intercept),537.3617348,234.2012532,92.94096654,1003.641131,TRUE,,,,,,
+,Pedicularis groenlandica,(Intercept),433.0087319,196.3152667,41.94992064,822.4625574,TRUE,,,,,,
+,Pedicularis groenlandica,tmean.avg,-4.522256054,1.251102074,-7.016899732,-2.013556225,TRUE,,,,,,
+,Gentiana algida,(Intercept),721.422172,186.1455859,354.8297892,1091.327278,TRUE,,,,,,
+,Gentiana algida,tmean.avg,-3.420974877,0.664971169,-4.720439212,-2.116193467,TRUE,,,,,,
+,Trifolium dasyphyllum,(Intercept),470.430605,224.5671363,27.26653421,913.0557478,TRUE,,,,Data Type,Mean flowering date,Earliest Flowering Date
+,Cherleria obtusiloba,(Intercept),657.6120973,244.8070798,183.4811145,1136.801418,TRUE,,,,observation,204.4012,152
+,Artemisia scopulorum,(Intercept),1012.730171,218.2604641,573.1099319,1449.30177,TRUE,,,,specimen,200.6926,135
+,Artemisia scopulorum,year,-0.379039562,0.118606224,-0.614268521,-0.139520849,TRUE,,,,,,
+,Hymenoxys grandiflora,(Intercept),527.3077555,194.8927283,137.1680525,912.8764243,TRUE,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,
+,,,,,,,,,,,,,

@@ -170,6 +170,7 @@ ggplot(comb.anntmean, aes(x = year, y = summit.tmean)) +
 prism.annual <- merge(comb.anntmean, comb.annppt, by = c("year", "site"))
 prism.annual$site = toupper(prism.annual$site) #upper case to match the other datasheets with phenology
 
+
 #monthly
 prism.month<- merge(comb.tmean, comb.ppt, by = c("month", "year", "site"))
 prism.month$site = toupper(prism.month$site)
@@ -187,6 +188,9 @@ early.monthly <- merge(earlyPhen, prism.month, by=c("year", "site")) #this is th
 # ii. join abiotic data to full phenology data
 #annual 
 full.annual<- merge(phen2, prism.annual, by=c("year", "site"))
+full.annual <- merge(phen, abio.df, by=c("year", "month")) #this joins phen to the seasonal abiotic dataframe; out of order may change
+
+
 check<-anti_join(phen2, full.annual) #all are records that fall outside of the 1895-2022 PRISM time frame. 559 of the 592 are from 2023. 
 
 #monthly
@@ -212,15 +216,15 @@ check<-anti_join(E.mbs.obs, prism.annual, by=c("year", "site")) #these are the r
 # impacts on flowering over annual time
 
 #i. plot full dataset
-ggplot(full.annual, aes(x = mean.ppt, y = ordinal_date, color=data_type)) +
+ggplot(full.annual, aes(x = ppt.mean, y = ordinal_date, color=season)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE) +
-  scale_color_manual(values=dataCols) +
+  #scale_color_manual(values=dataCols) +
   labs(title = "Correlation between observed ALL phenology dates and mean annual ppt",
        x = "Annual Precipitation (inches)",
        y = "All Ordinal Date") +
   theme_minimal() +
-  facet_wrap(~ data_type, scales = "free_x")
+  facet_wrap(~ season, scales = "free_x")
 
 ggplot(full.annual, aes(x = mean.tmean, y = ordinal_date, color=data_type)) +
   geom_point() +

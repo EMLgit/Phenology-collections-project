@@ -10,7 +10,6 @@ library(viridis)
 library(khroma)
 
 
-
 #Load data in CSV format. Check to see if it's the most up to date version with Erin. 
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_sorted.csv", header=TRUE) 
 phen <- read.csv("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Master_Dataframe_colorsEML.csv", header=TRUE) #This is the most up to date as of Jan 1 2024
@@ -115,7 +114,7 @@ siteFig2.spp <- ggplot(phen, aes(x = ordinal_date, y = site)) +
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/siteFig2.png", siteFig2, width = 10, height = 5, dpi = 300)
 
 
-
+dataCols <- c("#AA3377", "#CCBB44")
 #######
 #geomridges comparing mean flowering time across species over time
 sppRidges<-ggplot(phen, aes(x = ordinal_date, y = scientific_name, fill=factor(data_type))) + 
@@ -124,7 +123,19 @@ sppRidges<-ggplot(phen, aes(x = ordinal_date, y = scientific_name, fill=factor(d
   theme(legend.position = "top") +
   scale_fill_manual(values = dataCols)
 
-ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/sppRidges.png", sppRidges, width = 10, height = 5, dpi = 300)
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/sppRidges.png", sppRidges, width = 6, height =4 , dpi = 300)
+
+
+
+####General trends over time (years)
+
+phenHist <- ggplot(phen, aes(x=year, y=factor(data_type), fill=data_type)) +
+              geom_density_ridges(alpha=0.5) +
+              theme_minimal() +
+              scale_fill_manual(values = c( "#AA3377", "#CCBB44"))
+
+
+
 
 
 

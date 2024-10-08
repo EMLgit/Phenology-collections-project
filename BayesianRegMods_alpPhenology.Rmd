@@ -22,12 +22,15 @@ library(ggplot2)
 library(bayesplot)
 library(rstanarm)
 library(lme4)
-
-
+library(broom.mixed)
 
 
 #Load datastack
 load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
+
+#or
+
+load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
 
 ```
 
@@ -42,13 +45,13 @@ This is the most basic version. Is there are relationship between earliest obser
 ```{r}
 
 #each species
-spp <- unique(phen$scientific_name) #15 unique species in the dataset
+spp <- unique(phen.abio$scientific_name) #15 unique species in the dataset
 lm_models <- list()
 
 # Loop over each species
 for (i in spp) {
   # Subset data for the current species
-  subset_data <- subset(phen, spp == i)
+  subset_data <- subset(phen.abio, spp == i)
   
   #aggregate to find minimum date for each species in each year
   min_data <- aggregate(ordinal_date ~ year, data = subset_data, FUN = min)
@@ -101,3 +104,486 @@ print(model_summaries_lm) #this is the basic linear model looking at the minimum
 write.csv(model_summaries_lm, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_lm.csv")
 
 ```
+
+
+### mixed linear model for species flowering data over time
+This is the most basic version. Is there are relationship between earliest observation for each species across the history of the sites? 
+
+
+##### MIXED FREQ MODELS
+```{r}
+# Initialize an empty list to store models
+mixed_models <- list()
+spp <- unique(phen.abio$scientific_name)  
+
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    group_by(year, prevWintPPT, data_type) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup()
+  
+  # Fit mixed-effects model with fixed effects for year and random effects for data_type; when I included site it was over-fit
+  mixed_model <- lmer(ordinal_date ~ year + prevWintPPT+ (1 | data_type), data = earliest_data)
+  
+  # Store the mixed-effects model in the list with species name as key
+  mixed_models[[i]] <- mixed_model
+}
+
+model_summaries <- lapply(mixed_models, summary)
+print(model_summaries$`Primula angustifolia`)
+
+
+##TIDY model output for all earliest/spp data
+# Create a tidy table for all fitted models
+model_summaries <- lapply(names(mixed_models), function(species) {
+  model <- mixed_models[[species]]
+  tidy_model <- tidy(model, effects = "fixed")  # Extract fixed effects
+  tidy_model$species <- species  # Add species name to each row
+  tidy_model
+})
+
+all_summaries <- bind_rows(model_summaries)
+print(all_summaries)
+
+write.csv(all_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_mixedFrequentist_early.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+# Initialize an empty list to store models
+mixed_models <- list()
+spp <- unique(phen.abio$scientific_name)
+
+i='Eremogone fendleri'
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    #group_by(year, prevWintPPT, data_type) %>%
+    group_by(year) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup()
+  
+  # Fit mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type
+  mixed_model <- lmer(ordinal_date ~ year + prevWintPPT + (1 | data_type), data = earliest_data)
+  
+  # Store the mixed-effects model in the list with species name as key
+  mixed_models[[i]] <- mixed_model
+}
+
+# Create a tidy table for all fitted models including p-values and t-values
+all_summaries <- lapply(names(mixed_models), function(species) {
+  model <- mixed_models[[species]]
+  
+  # Extract fixed effects and calculate p-values and t-values
+  tidy_model <- tidy(model, effects = "fixed") %>%
+    mutate(
+      species = species,
+      p.value = 2 * pt(abs(statistic / std.error), df.residual(model), lower.tail = FALSE),
+      t.value = statistic / std.error
+    ) %>%
+    select(species, term, estimate, std.error, statistic, t.value, p.value)
+  
+  tidy_model
+})
+
+# Combine all summaries into a single data frame
+all_summaries_df <- bind_rows(all_summaries)
+
+# Print the tidy table
+print(all_summaries_df)
+
+
+write.csv(all_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_mixedFrequentist_early.csv", row.names = FALSE)
+
+#NOTE TO SELF: I think I might want to rescale the year variable so it starts at 0 and each year is a new integer, or something. 
+
+```
+
+# Bayesian linear model
+## Using BLME package
+
+```{r}
+# Initialize an empty list to store models
+mixed_models <- list()
+spp <- unique(phen.abio$scientific_name)
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    group_by(year) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup()
+  
+  # Fit Bayesian mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type
+  mixed_model_b <- blmer(ordinal_date ~ year + prevWintPPT + (1 | data_type), 
+                         data = earliest_data,
+                         prior=normal(0,10),
+                         prior_intercept=normal(0,10))
+  
+  # Store the mixed-effects model in the list with species name as key
+  mixed_models[[i]] <- mixed_model_b
+}
+
+# Print one of the fitted models for verification
+print(summary(mixed_models$`Primula angustifolia`))
+
+# Optionally, you can create a tidy table with all fitted models including p-values and t-values
+model_summaries <- lapply(names(mixed_models), function(species) {
+  model <- mixed_models[[species]]
+  
+  # Extract fixed effects and other relevant information
+  tidy_model <- tidy(model, effects = "fixed") %>%
+    mutate(
+      species = species
+    ) %>%
+    select(species, term, estimate, std.error, statistic, p.value)
+  
+  tidy_model
+})
+
+# Combine all summaries into a single data frame
+all_summaries <- bind_rows(model_summaries)
+
+# Print the tidy table
+print(all_summaries)
+
+
+
+```
+
+
+
+
+# BRMSpackage: Mixed model for earliest flowering dates per species over time
+
+
+
+###BRMS model winter ppt 
+This first chunk is the basic model with just preceding-winter temperature as a variable. I'll also try preceding ppt and current season temperature, and might choose to re-work precipiation so it's not the mean of monthly means, but rather the total winter precipitation. I'll do that after Botany, though!
+
+```{r}
+
+# Install and load necessary libraries
+if (!requireNamespace("brms", quietly = TRUE)) {
+  install.packages("brms")
+}
+library(brms)
+library(dplyr)
+
+# Initialize an empty list to store models
+bayesian_models <- list()
+spp <- unique(phen.abio$scientific_name)
+
+
+#for testing
+#i='Cherleria obtusiloba'
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    group_by(year) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup() 
+  
+  # Fit Bayesian mixed-effects model with fixed effects for year and random effects for data_type and site
+  bayesian_model <- brm(
+    ordinal_date ~ year + prevWintPPT + data_type,
+    data = earliest_data,
+    chains = 4,  # Number of Markov chains
+    iter = 2000, # Number of iterations per chain
+    warmup = 1000, # Number of warmup (burn-in) iterations
+    cores = parallel::detectCores(), # Use all available cores
+    control = list(adapt_delta = 0.95, max_treedepth = 15)
+    )
+  
+  # Store the Bayesian model in the list with species name as key
+  bayesian_models[[i]] <- bayesian_model
+}
+
+
+# Function to extract tidy model summaries and add significance
+extract_model_summary <- function(model, species_name) {
+  summary_df <- tidy(model, effects = "fixed", conf.int = TRUE)
+  summary_df$species <- species_name
+  summary_df <- summary_df %>%
+    mutate(significant = ifelse(conf.low > 0 | conf.high < 0, TRUE, FALSE))
+  return(summary_df)
+}
+
+
+# Extract summaries for all models and add species names
+model_summaries <- map2_dfr(bayesian_models, names(bayesian_models), extract_model_summary)
+
+
+#Save all model outputs; note that the data_type is not currently working, I don't think...probably need to define preiors better
+write.csv(model_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian.csv", row.names = FALSE)
+
+
+
+#extract only those results with CI intervals that indicate significance
+# Extract only significant results
+significant_results <- model_summaries %>%
+  filter(significant == TRUE)
+
+print(significant_results) #this is probably what I want to report on!
+
+write.csv(significant_results, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian_SigIndividSPP.csv", row.names = FALSE)
+
+
+
+###PLOT the results
+# Function to plot fixed effects for a given model
+plot_fixed_effects <- function(model, species_name) {
+  fixed_effects <- tidy(model, effects = "fixed")
+  ggplot(fixed_effects, aes(x = term, y = estimate, ymin = estimate - std.error, ymax = estimate + std.error)) +
+    geom_pointrange() +
+    labs(title = paste("Fixed Effects for", species_name), x = "Term", y = "Estimate") +
+    theme_minimal()
+}
+
+# Generate plots for all species
+plots <- map2(bayesian_models, names(bayesian_models), plot_fixed_effects)
+
+
+# Combine all plots using patchwork
+library(patchwork)
+combined_plot <- wrap_plots(plots, ncol = 3)
+combined_plot
+
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/combined_plots_Bayesian.png", combined_plot, width = 24, height = 18)
+
+
+
+```
+
+
+##BRMS model with temperature too
+```{r}
+
+# Initialize an empty list to store models
+bayesian_models <- list()
+spp <- unique(phen.abio$scientific_name)
+
+
+#for testing
+#i='Cherleria obtusiloba'
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    group_by(year) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup() 
+  
+  # Fit Bayesian mixed-effects model with fixed effects for year and random effects for data_type and site
+  bayesian_model <- brm(
+    ordinal_date ~ year + prevWintPPT + tmean.avg + data_type,
+    data = earliest_data,
+    chains = 4,  # Number of Markov chains
+    iter = 2000, # Number of iterations per chain
+    warmup = 1000, # Number of warmup (burn-in) iterations
+    cores = parallel::detectCores(), # Use all available cores
+    control = list(adapt_delta = 0.95, max_treedepth = 15)
+    )
+  
+  # Store the Bayesian model in the list with species name as key
+  bayesian_models[[i]] <- bayesian_model
+}
+
+
+# Function to extract tidy model summaries and add significance
+extract_model_summary <- function(model, species_name) {
+  summary_df <- tidy(model, effects = "fixed", conf.int = TRUE)
+  summary_df$species <- species_name
+  summary_df <- summary_df %>%
+    mutate(significant = ifelse(conf.low > 0 | conf.high < 0, TRUE, FALSE))
+  return(summary_df)
+}
+
+
+# Extract summaries for all models and add species names
+model_summaries <- map2_dfr(bayesian_models, names(bayesian_models), extract_model_summary)
+
+
+#Save all model outputs; note that the data_type is not currently working, I don't think...probably need to define preiors better
+write.csv(model_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian_TempPPTboth.csv", row.names = FALSE)
+
+
+
+#extract only those results with CI intervals taht indicate significance
+# Extract only significant results
+significant_results <- model_summaries %>%
+  filter(significant == TRUE)
+
+print(significant_results) #this is probably what I want to report on!
+
+write.csv(significant_results, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian_SigIndividSPP_TempPPTboth.csv", row.names = FALSE)
+
+
+
+###PLOT the results
+# Function to plot fixed effects for a given model
+plot_fixed_effects <- function(model, species_name) {
+  fixed_effects <- tidy(model, effects = "fixed")
+  ggplot(fixed_effects, aes(x = term, y = estimate, ymin = estimate - std.error, ymax = estimate + std.error)) +
+    geom_pointrange() +
+    labs(title = paste("Fixed Effects for", species_name), x = "Term", y = "Estimate") +
+    theme_minimal()
+}
+
+# Generate plots for all species
+plots <- map2(bayesian_models, names(bayesian_models), plot_fixed_effects)
+
+
+# Combine all plots using patchwork
+library(patchwork)
+combined_plot <- wrap_plots(plots, ncol = 3)
+combined_plot
+
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/combined_plots_BayesianTempPPT.png", combined_plot, width = 24, height = 18)
+
+png("pairs_plot.png", width = 2000, height = 2000)
+plot(bayesian_model)
+dev.off()
+
+
+```
+
+
+### Mixed model for median flowering dates per species over time
+
+```{r}
+# Initialize an empty list to store models
+bayesian_models_median <- list()
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen, spp == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  # median_data <- subset_data %>%
+  #   group_by(year) %>%
+  #   filter(ordinal_date == median(ordinal_date)) %>%
+  #   ungroup()
+  # 
+  # Fit Bayesian mixed-effects model with fixed effects for year and random effects for data_type and site
+  bayesian_model <- brm(
+    ordinal_date ~ year + (1 | data_type) + (1 | site),
+    data = subset_data,
+    chains = 4,  # Number of Markov chains
+    iter = 2000, # Number of iterations per chain
+    warmup = 1000, # Number of warmup (burn-in) iterations
+    cores = parallel::detectCores() # Use all available cores
+  )
+  
+  # Store the Bayesian model in the list with species name as key
+  bayesian_models_median[[i]] <- bayesian_model
+}
+
+# Extract model summaries using lapply
+bayesian_models_median_summaries <- lapply(bayesian_models_median, summary)
+
+# Print the summary of the first Bayesian model as an example
+print(bayesian_models_median_summaries[[1]])
+
+# Extract posterior summaries from the first model
+posterior_summary_median <- posterior_summary_median(bayesian_models_median[[1]])
+print(posterior_summary_median)
+
+plot(posterior_summary_median)
+```
+
+
+# Altered: species as random variable
+
+```{r}
+
+#adjust year data for the brms model (starts from 1871=year 1)
+phen <- phen %>%
+  mutate(year_mod = I(year-1871)) #maybe scale by adding "center=T" outside if inner parentheses
+
+
+
+###FOR ALL DATA
+
+#no priors
+m1 <- brms::brm(
+  formula = ordinal_date ~ year_mod + (1 | site) + (1 | scientific_name),
+  data = phen,
+  family = gaussian(),  # Assuming a normal distribution for 'doy'
+  iter = 2000,  # Number of iterations
+  warmup = 500,  # Number of warm-up iterations
+  chains = 4,   # Number of Markov chains
+  cores = 4,     # Number of cores for parallel processing
+  control = list(max_treedepth=15, adapt_delta = 0.99)  # Increased from default; brings the number of failures down to 15 
+)
+pairs(m1)
+summary(m1)
+plot(m1)
+
+#scientific name as random effect
+m2 <- brms::brm(
+  formula = ordinal_date ~ year_mod + (1 | site) + scientific_name,
+  data = phen,
+  family = gaussian(),  # Assuming a normal distribution for 'doy'
+  iter = 2000,  # Number of iterations
+  warmup = 500,  # Number of warm-up iterations
+  chains = 4,   # Number of Markov chains
+  cores = 4,     # Number of cores for parallel processing
+  control = list(max_treedepth=15, adapt_delta = 0.99)  # Increased from default; brings the number of failures down to 15 
+)
+pairs(m2)
+summary(m2)
+
+
+```
+
+
+
+
+
+#
+##
+###
+# Phenomix package max likelihood modeling approach
+Recent new package described here: https://esajournals.onlinelibrary.wiley.com/doi/10.1002/ecy.4061
+GitHub page here: https://github.com/nwfsc-cb/phenomix
+
+update: I don't think this will be helpful for us. The package requires count data (i.e. # of events per day over years), which would only be sensible if we grouped by species. We will have lots of 0 and 1 values. 
+
+```{r}
+remotes::install_github("nwfsc-cb/phenomix",build_vignettes = TRUE)
+
+library(phenomix)
+library(ggplot2)
+library(dplyr)
+library(TMB)
+
+```
+
