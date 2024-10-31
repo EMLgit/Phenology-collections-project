@@ -23,10 +23,11 @@ library(bayesplot)
 library(rstanarm)
 library(lme4)
 library(broom.mixed)
-
+library(dplyr)
+library(brms)
 
 #Load datastack
-load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
+#load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
 
 #or
 
@@ -34,7 +35,88 @@ load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Pheno
 
 ```
 
+#Explore varinace
+###PCA
+
+```{r}
+names(phen.abio)
+
+#add uphen.abio#add unique id to each occurrence
+phen.abio <- phen.abio %>% mutate(occID = row_number())
+names(phen.abio)
+
+
+#select only the relevant columns
+phen.abio2 <- phen.abio %>%
+  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp)
+str(phen.abio2)
+
+#check for null values
+colSums(is.na(phen.abio2)) #there are 49 problematic occurrences that I need to ask Erin about
+anyNA(phen.abio2) #confirming. We need to remove these! 
+
+#remove NA values: ASK ERIN WHY THESE ARE IN THE DATAFRAME TO BEGIN WITH
+phen.abio2 <- phen.abio2[complete.cases(phen.abio2), ]
+
+
+#Normalize data that is numeric for PCA
+phen.norm <- phen.abio2 %>% 
+  select(where(is.numeric)) %>%
+  scale()
+head(phen.norm)
+dim(phen.norm)
+any(is.infinite(phen.norm)) #no infinite values! Good. 
+
+
+
+##### RUN a PCA 
+pca_result <- prcomp(phen.norm, center = FALSE, scale. = FALSE)  # Since data is already normalized
+summary(pca_result)
+
+# Extract the variance explained by each component
+pca_variance <- pca_result$sdev^2
+pca_variance_explained <- pca_variance / sum(pca_variance)
+
+#check the PCA loadings from the result and save them for the supplement
+pca_loadings <- pca_result$rotation
+pca_loadings[, 1:8]
+barplot(pca_loadings, main = "Loadings for PC", las = 2, col = "forestgreen", cex.names = 0.7)
+
+write.csv(pca_loadings, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PCA_loadings.csv", row.names=TRUE)
+
+# Create a scree plot
+scree_plot <- data.frame(PC = 1:length(pca_variance_explained),
+                         Variance_Explained = pca_variance_explained)
+
+ggplot(scree_plot, aes(x = PC, y = Variance_Explained)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Variance in Erin's Data", x = "Principal Component", y = "Variance Explained") +
+  theme_bw()
+
+# Biplot of the first two principal components
+biplot(pca_result, scale = .5)  # You can use other parameters to fine-tune the biplot
+
+#Make it pretty
+library(ggbiplot)
+PCA_biplot<- ggbiplot(pca_result, obs.scale = 1, var.scale = 1, 
+         groups = factor(phen.abio2$data_type),  # Replace with your grouping variable if applicable
+         ellipse = TRUE,  # Adds confidence ellipses around groups
+         circle = TRUE,
+         varname.size = 4,
+         varname.adjust =1,) + 
+  scale_color_manual(values=c( "#CCBB44", "#AA3377")) +  # 
+  theme_bw() +  # Clean theme for readability
+  theme(legend.position = 'bottom') 
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/PCA_biplot.png", PCA_biplot, width = 6, height = 6 , dpi = 300)
+
+```
+
+
 #Models
+From the PCA above, it seems like PC1 is most strongly impacted by temperature (tmean.average) and preceding winter, temperature (prevWintTemp) and year (seasonYear). PC2 suggests that we might also want to include previous winter precipitation (prevWintPPT) and general precipitation (ppt.mean). 
+
+Given these outputs, I'll focus on what PC1 indicates as important, and add prevWintPPT as well. These are the variables that will go into the mixed hierarchical models later on in the script. 
 
 ##Basic linear models (frequentist)
 First, let's build some basic linear models to explore the data
@@ -129,7 +211,7 @@ for (i in spp) {
     ungroup()
   
   # Fit mixed-effects model with fixed effects for year and random effects for data_type; when I included site it was over-fit
-  mixed_model <- lmer(ordinal_date ~ year + prevWintPPT+ (1 | data_type), data = earliest_data)
+  mixed_model <- lmer(ordinal_date ~ year + prevWintPPT + (1 | data_type), data = earliest_data)
   
   # Store the mixed-effects model in the list with species name as key
   mixed_models[[i]] <- mixed_model
@@ -212,12 +294,14 @@ write.csv(all_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phe
 
 # Bayesian linear model
 ## Using BLME package
+This is interesting but probably not what I'll go with. I'll use BRMS see below.
 
 ```{r}
 # Initialize an empty list to store models
 mixed_models <- list()
 spp <- unique(phen.abio$scientific_name)
 
+i='Castilleja occidentalis'
 # Loop through each species
 for (i in spp) {
   # Subset data for the current species
@@ -229,11 +313,22 @@ for (i in spp) {
     filter(ordinal_date == min(ordinal_date)) %>%
     ungroup()
   
-  # Fit Bayesian mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type
-  mixed_model_b <- blmer(ordinal_date ~ year + prevWintPPT + (1 | data_type), 
-                         data = earliest_data,
+  try <- earliest_data %>%
+    mutate(across(c(data_type), as.factor))
+    
+    
+  
+  # Fit Bayesian mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type: INCORRECT
+  mixed_model_b <- blmer(ordinal_date ~ (year) + (prevWintPPT) + (year:prevWintPPT) + (1|data_type) + site, 
+                         data = try,
                          prior=normal(0,10),
                          prior_intercept=normal(0,10))
+  
+  earliest_data$prevWintPPT <- scale(earliest_data$prevWintPPT)
+  model <- blmer(ordinal_date ~ data_type +           # Fixed effect
+                 #(1 | seasonYear) +                       # Random intercept for year
+                 prevWintPPT,                        # Random intercept for site
+               data = earliest_data)   
   
   # Store the mixed-effects model in the list with species name as key
   mixed_models[[i]] <- mixed_model_b
@@ -269,7 +364,41 @@ print(all_summaries)
 
 
 
-# BRMSpackage: Mixed model for earliest flowering dates per species over time
+# BRMS package: Mixed model for earliest flowering dates per species over time
+
+### General model
+Here I'll call species a group-level fixed effect rather than treating each species separately. 
+
+```{r}
+mod1 <- brm(ordinal_date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific_name), data=phen.abio2, family=poisson())
+summary(mod1)
+
+#need more iterations
+mod1b <- brm(ordinal_date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific_name), 
+             data=phen.abio2, 
+             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1b)
+summary(mod1b)
+
+#interactive effect of abiotic data instead?
+mod1c <- brm(ordinal_date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific_name), 
+             data=phen.abio2, 
+             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1c)
+summary(mod1c)
+
+
+#compare models with a leave-one-out (LOO) cross validation technique
+loo(mod1b, mod1c) #model 1c has higher eLPD than model 1b, so we will use that one! All pareto k estimates are good. 
+
+# I might want to remove occID because it's probably not really helping...but I'll mess around with that later
+```
 
 
 
@@ -551,7 +680,7 @@ plot(m1)
 m2 <- brms::brm(
   formula = ordinal_date ~ year_mod + (1 | site) + scientific_name,
   data = phen,
-  family = gaussian(),  # Assuming a normal distribution for 'doy'
+  family = gaussian(),  # Assuming a normal distribution for 'ordinal_date'
   iter = 2000,  # Number of iterations
   warmup = 500,  # Number of warm-up iterations
   chains = 4,   # Number of Markov chains
