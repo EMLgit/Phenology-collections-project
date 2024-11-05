@@ -124,12 +124,16 @@ df.shift<-df.shift %>%
   select(-seasonYear.y, -season_label)
 
 
+###Add minimum spring temperature column (shifted because most records are from summer months)
+#Idea after Al Kovaleski's talk: maybe I should also calculate an estimate for dormancy period (duration, min temp, accumulated snow)
+
+
 
 #UPDATE main dataframe to include abiotic columsn from previous year: THIS IS WHAT GOES TO THE BAYESIAN MODELING SCRIPT
 phen.abio <- df.shift
 
 save(phen.abio, abio.df, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
-
+load(file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
 
 
 
@@ -244,4 +248,5 @@ winter.panel <- winterTemp + winterPPT
 
 #At this point, we have a seasonally-explicit abiotic dataframe. I think we want to try to compare seasonal values to early flowering
 
+###Next I'm going to mess around with creating a frost index to add to the abiotic dataframe 
 

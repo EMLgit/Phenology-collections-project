@@ -1,0 +1,133 @@
+---
+title: 'Frost Index: phenology project'
+author: "emlombardi"
+date: "2024-10-31"
+output: html_document
+---
+
+The objectives of this script are to:
+1. calculate an index that categorizes years with high, moderate and low spring frost probability
+2. incorporate chill acclimation and deacclimation into our models (See Al Kovaleski's work; ask him for ideas, perhaps)
+3. add a column for dormancy duration estimates for preceding winter (based on temperature alone, I suppose)
+
+
+```{r libraries}
+library(ggplot2)
+library(dplyr)
+
+```
+
+
+#Data
+```{r}
+load(file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
+
+```
+
+# Spring frost index
+Calculate the records collected in years following different snow/temperature regimes 
+
+## Spring temperatures
+```{r}
+#create column for spring temperature
+tempshifted <- abio.df %>%
+  group_by(season_label, site, seasonYear) %>%
+  summarise(mean_temp_mean = mean(tmean.avg, na.rm = TRUE)) %>%
+  mutate(seasonYear.shifted = seasonYear + 1)
+
+tempshifted.spring <- tempshifted %>%
+  filter(str_detect(season_label, "^spring\\d+"))
+
+df.shift <- df.shift %>% 
+  left_join(tempshifted.spring, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(prevSpringTemp = mean_temp_mean)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season_label)
+
+```
+
+
+## Frost categories
+
+At this point, `df.shift` is the dataframe with the information that we need! I'll keep it like this for now, but eventually (e.g. after I add the frost index) I'll rename it to `phen.abio` and the rest of the modeling scripts will work. 
+
+```{r}
+#check cutoffs
+quantile(df.shift$prevWintPPT, na.rm=TRUE)
+quantile(df.shift$prevSpringTemp, na.rm=TRUE)
+
+
+#based on previous WINTER temperature and precipitation
+df.winter <- df.shift %>%
+  filter(!is.na(prevWintPPT) & !is.na(prevWintTemp)) %>%
+  mutate(
+    springFrost = case_when(
+      prevWintPPT <= quantile(prevWintPPT, 0.25) & prevWintTemp <= quantile(prevWintTemp, 0.25) ~ "high",
+      prevWintPPT >= quantile(prevWintPPT, 0.75) & prevWintTemp >= quantile(prevWintTemp, 0.75) ~ "low",
+      TRUE ~ "moderate"
+    )
+  )
+table(df.winter$springFrost)
+
+
+#based on previous winter PPt and previous SPRING temperature
+df.springFrost <- df.shift %>%
+  filter(!is.na(prevWintPPT) & !is.na(prevSpringTemp)) %>%
+  mutate(
+    springFrost = case_when(
+      prevWintPPT <= quantile(prevWintPPT, 0.25) & prevSpringTemp <= quantile(prevSpringTemp, 0.25) ~ "high",
+      prevWintPPT >= quantile(prevWintPPT, 0.75) & prevSpringTemp >= quantile(prevSpringTemp, 0.75) ~ "low",
+      TRUE ~ "moderate"
+    )
+  )
+table(df.springFrost$springFrost) #Huh. No low risk years based on quantile approach alone...Go with it for now. 
+
+
+#Use df.springFrost for the abiotic+phenology dataframe (for models, etc)
+phen.abio=df.springFrost
+save(phen.abio, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
+
+```
+
+# Plot Data
+
+```{r}
+#basic plot with all data for all species in one graph
+ggplot(df.springFrost, aes(x = year, y = ordinal_date, color = factor(springFrost))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, aes(group = springFrost)) +  # Add linear regression lines
+  scale_color_manual(values = c("red", "goldenrod2", "slategray")) +  # You can adjust colors
+  theme_minimal()
+
+#Species plots with linear regression
+ggplot(df.springFrost, aes(x = year, y = ordinal_date, color=factor(springFrost))) +
+  geom_point(outlier.shape = NA) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(
+    title = "Box Plot of Values by Category",
+    x = "Date",
+    y = "Value"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  scale_fill_manual(values=colors) +
+  facet_wrap(~scientific_name)
+
+
+#What if we look at previous winter temperatures instead of spring
+#basic plot with all data for all species in one graph
+ggplot(df.winter, aes(x = year, y = ordinal_date, color = factor(springFrost))) +
+  geom_point() +
+  #geom_smooth(method = "lm", se = FALSE, aes(group = springFrost)) +  # Add linear regression lines
+  scale_color_manual(values = c("red", "goldenrod2", "slategray")) +  # You can adjust colors
+  theme_minimal()
+#looks like only one year falls into the low risk category here...
+```
+
+Based on these results, it doesn't seem like there is a huge impact of frost index on ordinal date of observation for all data, at least. I'll keep it and re-run PCA with this as a category worth considering. 
+
+It might also be a good idea to add a dormancy variable into the dataset and models. Do do this, I have to get new daily PRISM data for all of the years in the dataset. I would want:
+-daily mean temperature?
+-daily minimum temperature
+-daily maximum temperature

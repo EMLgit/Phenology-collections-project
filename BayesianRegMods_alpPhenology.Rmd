@@ -25,6 +25,7 @@ library(lme4)
 library(broom.mixed)
 library(dplyr)
 library(brms)
+library(purrr)
 
 #Load datastack
 #load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
@@ -50,6 +51,17 @@ names(phen.abio)
 phen.abio2 <- phen.abio %>%
   select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp)
 str(phen.abio2)
+names(phen.abio2)
+
+#rename columns with underscores in colnames because it'll mess up map functions in purrr package later on!
+phen.abio2 <- phen.abio2 %>% 
+  rename(
+    scientific.name = scientific_name,
+    ordinal.date = ordinal_date,
+    elevation = elevation_m,
+    data.type = data_type
+  )
+  
 
 #check for null values
 colSums(is.na(phen.abio2)) #there are 49 problematic occurrences that I need to ask Erin about
@@ -370,11 +382,11 @@ print(all_summaries)
 Here I'll call species a group-level fixed effect rather than treating each species separately. 
 
 ```{r}
-mod1 <- brm(ordinal_date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific_name), data=phen.abio2, family=poisson())
+mod1 <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), data=phen.abio2, family=poisson())
 summary(mod1)
 
 #need more iterations
-mod1b <- brm(ordinal_date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific_name), 
+mod1b <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), 
              data=phen.abio2, 
              family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
              iter = 4000, 
@@ -384,7 +396,7 @@ pairs(mod1b)
 summary(mod1b)
 
 #interactive effect of abiotic data instead?
-mod1c <- brm(ordinal_date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific_name), 
+mod1c <- brm(ordinal.date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific.name), 
              data=phen.abio2, 
              family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
              iter = 4000, 
@@ -399,10 +411,145 @@ loo(mod1b, mod1c) #model 1c has higher eLPD than model 1b, so we will use that o
 
 # I might want to remove occID because it's probably not really helping...but I'll mess around with that later
 ```
+## Same model for individual species
+
+```{r}
+#Initialize empty list to store models
+bayesian.models <- list()
+spp <- unique(phen.abio2$scientific.name)
+
+#for testing
+#i='Polemonium viscosum'
+
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset.data <- subset(phen.abio2, scientific.name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest.data <- subset.data %>%
+    group_by(seasonYear) %>%
+    filter(ordinal.date == min(ordinal.date)) %>%
+    ungroup() 
+  
+  # Fit Bayesian mixed-effects model 
+  bayesian.model <- brm(
+    ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
+    data = earliest.data,
+    chains = 4,  # Number of Markov chains
+    iter = 4000, # Number of iterations per chain
+    warmup = 1000, # Number of warmup (burn-in) iterations
+    cores = parallel::detectCores(), # Use all available cores
+    control = list(adapt_delta = 0.96, max_treedepth = 15)
+    )
+
+  # Store the Bayesian model in the list with species name as key
+  bayesian.models[[i]] <- bayesian.model
+}
+
+
+# Function to extract tidy model summaries and add significance
+extract_model_summary <- function(model, species_name) {
+  summary_df <- tidy(model, effects = "fixed", conf.int = TRUE)
+  summary_df$species <- species_name
+  summary_df <- summary_df %>%
+    mutate(significant = ifelse(conf.low > 0 | conf.high < 0, TRUE, FALSE)) # If the confidence interval crosses zero, the effect is not considered significant.
+  return(summary_df)
+}
+
+
+# Extract summaries for all models and add species names
+model.summaries <- map2_dfr(bayesian.models, names(bayesian.models), extract_model_summary)
+
+#Save all model outputs; note that the data_type is not currently working, I don't think...probably need to define preiors better
+write.csv(model.summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian.csv", row.names = FALSE)
+
+#extract only those results with CI intervals that indicate significance (i.e. don't cross zero)
+# Extract only significant results
+significant.results <- model.summaries %>%
+  filter(significant == TRUE)
+
+View(significant.results) #this is probably what I want to report on!
+
+write.csv(significant.results, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/model_summaries_Bayesian_SigIndividSPP.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+i="Castilleja occidentalis"
+
+# Loop through each species and fit the model
+for (i in spp) {
+  # Subset data for the current species
+  subset.data <- subset(phen.abio2, scientific.name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest.data <- subset.data %>%
+    group_by(seasonYear) %>%
+    filter(ordinal.date == min(ordinal.date)) %>%
+    ungroup()
+  
+  # Prepare files to save warnings and errors
+  warning_file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("warnings_", i, ".txt"))
+  error_file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("errors_", i, ".txt"))
+  
+  # Initialize empty lists to collect warnings and errors
+  warnings_list <- list()
+  error_message <- NULL
+  
+  # Fit Bayesian mixed-effects model and capture warnings and errors
+  bayesian.model <- tryCatch({
+    withCallingHandlers({
+      brm(
+        ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
+        data = earliest.data,
+        chains = 4,  # Number of Markov chains
+        iter = 4000, # Number of iterations per chain
+        warmup = 1000, # Number of warmup (burn-in) iterations
+        cores = parallel::detectCores(), # Use all available cores
+        control = list(adapt_delta = 0.96, max_treedepth = 15)
+      )
+    }, warning = function(w) {
+      # Capture warning and print to console
+      warnings_list <<- c(warnings_list, conditionMessage(w))
+      message("Warning for species ", i, ": ", conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  }, error = function(e) {
+    # Capture error message
+    error_message <<- conditionMessage(e)
+    message("Error fitting model for species ", i, ": ", error_message)
+    NULL
+  })
+  
+  # Save warnings and errors to files if they exist
+  if (length(warnings_list) > 0) {
+    writeLines(warnings_list, con = warning_file_path)
+  }
+  if (!is.null(error_message)) {
+    writeLines(error_message, con = error_file_path)
+  }
+  
+  # Store the Bayesian model and save summary if model fits
+  if (!is.null(bayesian.model)) {
+    bayesian.models[[i]] <- bayesian.model
+    
+    # Extract summary output and save to a file
+    summary_output <- capture.output(summary(bayesian.model))
+    file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("summarySPPmod_", i, ".txt"))
+    writeLines(summary_output, con = file_path)
+  }
+}
+
+```
 
 
 
-###BRMS model winter ppt 
+
+#Models of the past
+
+#### BRMS model winter ppt [OLD model]
 This first chunk is the basic model with just preceding-winter temperature as a variable. I'll also try preceding ppt and current season temperature, and might choose to re-work precipiation so it's not the mean of monthly means, but rather the total winter precipitation. I'll do that after Botany, though!
 
 ```{r}
@@ -416,7 +563,7 @@ library(dplyr)
 
 # Initialize an empty list to store models
 bayesian_models <- list()
-spp <- unique(phen.abio$scientific_name)
+spp <- unique(phen.abio2$scientific.name)
 
 
 #for testing
@@ -425,18 +572,18 @@ spp <- unique(phen.abio$scientific_name)
 # Loop through each species
 for (i in spp) {
   # Subset data for the current species
-  subset_data <- subset(phen.abio, scientific_name == i)
+  subset.data <- subset(phen.abio2, scientific.name == i)
   
   # Find the earliest observation for each year while keeping all variables
-  earliest_data <- subset_data %>%
-    group_by(year) %>%
-    filter(ordinal_date == min(ordinal_date)) %>%
+  earliest.data <- subset.data %>%
+    group_by(seasonYear) %>%
+    filter(ordinal.date == min(ordinal.date)) %>%
     ungroup() 
   
   # Fit Bayesian mixed-effects model with fixed effects for year and random effects for data_type and site
-  bayesian_model <- brm(
-    ordinal_date ~ year + prevWintPPT + data_type,
-    data = earliest_data,
+  bayesian.model <- brm(
+    ordinal.date ~ seasonYear + prevWintPPT + data.type,
+    data = earliest.data,
     chains = 4,  # Number of Markov chains
     iter = 2000, # Number of iterations per chain
     warmup = 1000, # Number of warmup (burn-in) iterations
@@ -445,7 +592,7 @@ for (i in spp) {
     )
   
   # Store the Bayesian model in the list with species name as key
-  bayesian_models[[i]] <- bayesian_model
+  bayesian.models[[i]] <- bayesian.model
 }
 
 
@@ -603,7 +750,6 @@ dev.off()
 
 ```
 
-
 ### Mixed model for median flowering dates per species over time
 
 ```{r}
@@ -654,7 +800,7 @@ plot(posterior_summary_median)
 ```{r}
 
 #adjust year data for the brms model (starts from 1871=year 1)
-phen <- phen %>%
+phen <- phen.abio %>%
   mutate(year_mod = I(year-1871)) #maybe scale by adding "center=T" outside if inner parentheses
 
 
