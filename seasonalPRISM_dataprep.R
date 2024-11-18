@@ -40,13 +40,13 @@ abio.df <- abio.df %>%
     TRUE ~ NA_character_
   )) %>%
   arrange(year, month) %>%
-  mutate(season_year = ifelse(month == 12, year + 1, year)) %>%
+  mutate(season.year = ifelse(month == 12, year + 1, year)) %>%
   group_by(season) %>%
-  mutate(ticker = dense_rank(season_year)) %>%
+  mutate(ticker = dense_rank(season.year)) %>%
   ungroup() %>%
-  mutate(season_label = paste0(season, ticker),
+  mutate(season.label = paste0(season, ticker),
          seasonYear = ticker) %>%
-  select(-season_year, -ticker)
+  select(-season.year, -ticker)
 
 
 
@@ -71,72 +71,31 @@ phen.abio <- left_join(phen, abio.df, by = c("month", "year", "site"))
 write.csv(phen.abio, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phen.abio.csv")
 
 
+###Check distribution of observations by site through time
+#confirmed uneven sampling at MBS and PP pre-iNat data. Problem? Hopefully not...Just keep site as a factor variable...
+
+ggplot(phen.abio, aes(x = year, y = tmean.avg, color=site)) + 
+  geom_point(alpha=0.5)   
+
+             
 ##### NEXT TASK
 # I want to add ppt and temp data from preceding winter season (season_label) to the mixed effects linear models. For this, move over to the BayesianRegMods_alpPhenology.Rmd script
 
-#PRECIP
-pptshifted <- abio.df %>%
-  group_by(season_label, site, seasonYear) %>%
-  summarise(mean_ppt_mean = mean(ppt.mean, na.rm = TRUE)) %>%
-  mutate(seasonYear.shifted = seasonYear + 1)
+abio.seasonal <- abio.df %>%
+  group_by(site, season.label) %>%  # Group by site, seasonal year, and season
+  summarize(
+    seas.mean.precip = mean(ppt.mean, na.rm = TRUE), #mean seasonal precipitation
+    seas.total.precip = sum(ppt.mean, na.rm = TRUE), # Total seasonal precipitation
+    seas.mean.temp = mean(tmean.avg, na.rm = TRUE), #Mean seasonal temperature
+    seas.min.temp = min(tmean.avg, na.rm =TRUE), # Min seasonal temperature
+    .groups = "drop"                               # Ungroup after summarizing
+  )
 
-pptshifted.winter <- pptshifted %>%
-  filter(str_detect(season_label, "^winter\\d+"))
-
-df.shift <- phen.abio %>% 
-  left_join(pptshifted.winter, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
-  rename(prevWintPPT = mean_ppt_mean)
-
-df.shift<-df.shift %>%
-  select(-seasonYear.y, -season_label.y)
-
-
-#TEMP
-tempshifted <- abio.df %>%
-  group_by(season_label, site, seasonYear) %>%
-  summarise(mean_temp_mean = mean(tmean.avg, na.rm = TRUE)) %>%
-  mutate(seasonYear.shifted = seasonYear + 1)
-
-tempshifted.winter <- tempshifted %>%
-  filter(str_detect(season_label, "^winter\\d+"))
-
-df.shift <- df.shift %>% 
-  left_join(tempshifted.winter, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
-  rename(prevWintTemp = mean_temp_mean)
-
-df.shift<-df.shift %>%
-  select(-seasonYear.y, -season_label)
-
-#TEMP of spring of collection year? NOT WORKING YET
-tempshifted <- df.shift %>%
-  group_by(season_label.x, site, seasonYear) %>%
-  summarise(mean_temp_mean = mean(tmean.avg, na.rm = TRUE)) %>%
-  mutate(seasonYear.shifted = seasonYear + 1)
-
-tempshifted.spring <- tempshifted %>%
-  filter(str_detect(season_label.x.y, "^spring\\d+"))
-
-df.shift <- df.shift %>% 
-  left_join(tempshifted.spring, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
-  rename(prevSpringTemp = mean_temp_mean)
-
-df.shift<-df.shift %>%
-  select(-seasonYear.y, -season_label)
-
-
-###Add minimum spring temperature column (shifted because most records are from summer months)
-#Idea after Al Kovaleski's talk: maybe I should also calculate an estimate for dormancy period (duration, min temp, accumulated snow)
-
-
-
-#UPDATE main dataframe to include abiotic columsn from previous year: THIS IS WHAT GOES TO THE BAYESIAN MODELING SCRIPT
-phen.abio <- df.shift
+phen.abio <- phen.abio %>%
+  left_join(abio.seasonal, by = c("site", "season.label"))
 
 save(phen.abio, abio.df, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
 load(file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
-
-
-
 
 
 ###QUICK descriptive stats about how seasonal values have changed over time 
@@ -246,7 +205,99 @@ winter.panel <- winterTemp + winterPPT
 
 
 
-#At this point, we have a seasonally-explicit abiotic dataframe. I think we want to try to compare seasonal values to early flowering
+######OLD and NOT USEFUL BELOW THIS LINE (DELETE LATER)
 
-###Next I'm going to mess around with creating a frost index to add to the abiotic dataframe 
+#--------OLD
+#PRECIP
+pptshifted <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(mean.ppt.seasonal = mean(ppt.mean, na.rm = TRUE)) 
 
+pptshifted2 <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(tot.ppt.seasonal = sum(ppt.mean, na.rm = TRUE)) 
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season_label.y)
+
+# I. mean winter precipitation
+pptshifted <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(mean_ppt_mean = mean(ppt.mean, na.rm = TRUE)) %>%
+  #mutate(seasonYear.shifted = seasonYear + 1)
+  mutate(seasonYear.shifted = seasonYear)
+
+pptshifted.winter <- pptshifted %>%
+  filter(str_detect(season.label, "^winter\\d+"))
+
+df.shift <- phen.abio %>% 
+  left_join(pptshifted.winter, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(prevWintPPT.mean = mean_ppt_mean)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season_label.y)
+
+# II. total winter precipitation
+pptshifted <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(tot_wintPPT = sum(ppt.mean, na.rm = TRUE)) %>%
+  mutate(seasonYear.shifted = seasonYear + 1)
+
+pptshifted.winter <- pptshifted %>%
+  filter(str_detect(season.label, "^winter\\d+"))
+
+df.shift <- df.shift %>% 
+  left_join(pptshifted.winter, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(tot.wintPPT = tot_wintPPT)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y.y)
+
+
+
+#TEMP
+tempshifted <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(mean.temp.mean = mean(tmean.avg, na.rm = TRUE)) %>%
+  mutate(seasonYear.shifted = seasonYear + 1)
+
+tempshifted2 <- abio.df %>%
+  group_by(season.label, site, seasonYear) %>%
+  summarise(min.temp = min(tmean.avg, na.rm = TRUE)) %>%
+  mutate(seasonYear.shifted = seasonYear + 1)
+
+tempshifted.winter <- tempshifted %>%
+  filter(str_detect(season_label, "^winter\\d+"))
+
+df.shift <- df.shift %>% 
+  left_join(tempshifted.winter, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(prevWintTemp = mean.temp.mean)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season.label)
+
+#TEMP of spring of collection year? NOT WORKING YET
+tempshifted <- df.shift %>%
+  group_by(season.label.x, site, seasonYear) %>%
+  summarise(min.temp.mean = min(tmean.avg, na.rm = TRUE)) 
+
+#%>% mutate(seasonYear.shifted = seasonYear + 1)
+
+tempshifted.spring <- tempshifted %>%
+  filter(str_detect(season.label.x.y, "^spring\\d+"))
+
+df.shift <- df.shift %>% 
+  left_join(tempshifted.spring, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
+  rename(prevSpringTemp = mean.temp.mean)
+
+df.shift<-df.shift %>%
+  select(-seasonYear.y, -season.label)
+
+
+###Add minimum spring temperature column (shifted because most records are from summer months)
+#Idea after Al Kovaleski's talk: maybe I should also calculate an estimate for dormancy period (duration, min temp, accumulated snow)
+
+
+
+#UPDATE main dataframe to include abiotic columsn from previous year: THIS IS WHAT GOES TO THE BAYESIAN MODELING SCRIPT
+phen.abio <- df.shift

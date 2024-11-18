@@ -49,7 +49,7 @@ names(phen.abio)
 
 #select only the relevant columns
 phen.abio2 <- phen.abio %>%
-  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp)
+  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp, prevSpringTemp, springFrost)
 str(phen.abio2)
 names(phen.abio2)
 
@@ -110,8 +110,8 @@ biplot(pca_result, scale = .5)  # You can use other parameters to fine-tune the 
 
 #Make it pretty
 library(ggbiplot)
-PCA_biplot<- ggbiplot(pca_result, obs.scale = 1, var.scale = 1, 
-         groups = factor(phen.abio2$data_type),  # Replace with your grouping variable if applicable
+PCA_biplot <- ggbiplot(pca_result, obs.scale = 1, var.scale = 1, 
+         groups = factor(phen.abio2$data.type),  # Replace with your grouping variable if applicable
          ellipse = TRUE,  # Adds confidence ellipses around groups
          circle = TRUE,
          varname.size = 4,
@@ -120,13 +120,14 @@ PCA_biplot<- ggbiplot(pca_result, obs.scale = 1, var.scale = 1,
   theme_bw() +  # Clean theme for readability
   theme(legend.position = 'bottom') 
 
+
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/PCA_biplot.png", PCA_biplot, width = 6, height = 6 , dpi = 300)
 
 ```
 
 
 #Models
-From the PCA above, it seems like PC1 is most strongly impacted by temperature (tmean.average) and preceding winter, temperature (prevWintTemp) and year (seasonYear). PC2 suggests that we might also want to include previous winter precipitation (prevWintPPT) and general precipitation (ppt.mean). 
+From the PCA above, it seems like PC1 is most strongly impacted by temperature (tmean.average) and preceding winter and (or?) spring temperature and year (seasonYear). PC2 suggests that we might also want to include previous winter precipitation (prevWintPPT) and general precipitation (ppt.mean). 
 
 Given these outputs, I'll focus on what PC1 indicates as important, and add prevWintPPT as well. These are the variables that will go into the mixed hierarchical models later on in the script. 
 
@@ -374,14 +375,15 @@ print(all_summaries)
 ```
 
 
-
-
 # BRMS package: Mixed model for earliest flowering dates per species over time
 
 ### General model
 Here I'll call species a group-level fixed effect rather than treating each species separately. 
 
+#### Mod1 
 ```{r}
+
+#MOD1 versions (i.e. prevWintPPT and tmean.avg)
 mod1 <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), data=phen.abio2, family=poisson())
 summary(mod1)
 
@@ -410,6 +412,36 @@ summary(mod1c)
 loo(mod1b, mod1c) #model 1c has higher eLPD than model 1b, so we will use that one! All pareto k estimates are good. 
 
 # I might want to remove occID because it's probably not really helping...but I'll mess around with that later
+```
+#### Mod2 spring temperatures
+```{r}
+#MOD2 versions (i.e. prevWintPPT and prevSpringTemp)
+mod1 <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), data=phen.abio2, family=poisson())
+summary(mod1)
+
+#need more iterations
+mod1b <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), 
+             data=phen.abio2, 
+             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1b)
+summary(mod1b)
+
+#interactive effect of abiotic data instead?
+mod1c <- brm(ordinal.date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific.name), 
+             data=phen.abio2, 
+             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1c)
+summary(mod1c)
+
+
+#compare models with a leave-one-out (LOO) cross validation technique
+loo(mod1b, mod1c) 
 ```
 ## Same model for individual species
 
@@ -476,10 +508,14 @@ write.csv(significant.results, "/Users/elizabethlombardi/Desktop/Research/UNM/Er
 
 ```
 
+
 ```{r}
+bayesian.models <- list()
+spp <- unique(phen.abio2$scientific.name)
+
+#To test the code
 i="Castilleja occidentalis"
 
-# Loop through each species and fit the model
 for (i in spp) {
   # Subset data for the current species
   subset.data <- subset(phen.abio2, scientific.name == i)
@@ -488,60 +524,34 @@ for (i in spp) {
   earliest.data <- subset.data %>%
     group_by(seasonYear) %>%
     filter(ordinal.date == min(ordinal.date)) %>%
-    ungroup()
+    ungroup() 
   
-  # Prepare files to save warnings and errors
-  warning_file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("warnings_", i, ".txt"))
-  error_file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("errors_", i, ".txt"))
-  
-  # Initialize empty lists to collect warnings and errors
-  warnings_list <- list()
-  error_message <- NULL
-  
-  # Fit Bayesian mixed-effects model and capture warnings and errors
+  # Fit Bayesian mixed-effects model and handle errors if any
   bayesian.model <- tryCatch({
-    withCallingHandlers({
-      brm(
-        ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
-        data = earliest.data,
-        chains = 4,  # Number of Markov chains
-        iter = 4000, # Number of iterations per chain
-        warmup = 1000, # Number of warmup (burn-in) iterations
-        cores = parallel::detectCores(), # Use all available cores
-        control = list(adapt_delta = 0.96, max_treedepth = 15)
-      )
-    }, warning = function(w) {
-      # Capture warning and print to console
-      warnings_list <<- c(warnings_list, conditionMessage(w))
-      message("Warning for species ", i, ": ", conditionMessage(w))
-      invokeRestart("muffleWarning")
-    })
+    brm(
+      ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
+      data = earliest.data,
+      chains = 4,  # Number of Markov chains
+      iter = 4000, # Number of iterations per chain
+      warmup = 1000, # Number of warmup (burn-in) iterations
+      cores = parallel::detectCores(), # Use all available cores
+      control = list(adapt_delta = 0.98, max_treedepth = 15)
+    )
   }, error = function(e) {
-    # Capture error message
-    error_message <<- conditionMessage(e)
-    message("Error fitting model for species ", i, ": ", error_message)
+    message("Error fitting model for species ", i, ": ", e$message)
     NULL
   })
-  
-  # Save warnings and errors to files if they exist
-  if (length(warnings_list) > 0) {
-    writeLines(warnings_list, con = warning_file_path)
-  }
-  if (!is.null(error_message)) {
-    writeLines(error_message, con = error_file_path)
-  }
-  
-  # Store the Bayesian model and save summary if model fits
+
+  # Store the Bayesian model in the list with species name as key if model fits
   if (!is.null(bayesian.model)) {
     bayesian.models[[i]] <- bayesian.model
-    
+
     # Extract summary output and save to a file
     summary_output <- capture.output(summary(bayesian.model))
     file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("summarySPPmod_", i, ".txt"))
     writeLines(summary_output, con = file_path)
   }
 }
-
 ```
 
 
