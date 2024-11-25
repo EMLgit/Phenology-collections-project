@@ -113,6 +113,105 @@ var<-ggplot(data=PCA_var,aes(PC1, PC2)) +
 
 ```
 
+###PCA parameter reduction
+```{r}
+#correlation in the matrix?
+cmat <- cor(pca.params)
+
+# Find highly correlated pairs (e.g., |correlation| > 0.9)
+high.corr <- which(abs(cmat) > 0.9, arr.ind = TRUE)
+
+# Remove duplicates (i.e., diagonal and repeated pairs)
+high.corr <- high.corr[high.corr[, 1] < high.corr[, 2], ]
+
+#check it out
+cor.vars <- data.frame(
+  Var1 = rownames(cmat)[high.corr[, 1]],
+  Var2 = colnames(cmat)[high.corr[, 2]],
+  Correlation = cmat[high.corr]
+)
+print(cor.vars) #based on this I will remove spring_seas.mean.precip and winter_seas.mean.precip as well as seas.mean.precip and seas.mean.temp
+
+
+```
+
+#### Reduce PCA parameters
+Remove variables that are highly correlated (see `cor.vars` above) from the dataframe and re-run ordination stuff. Either remove one of the variables that is highly correlated with another (based on my sense of what makes biological sense) or select the variables that I want to keep...probably the former. 
+
+```{r}
+#remove seas.mean.precip
+#remove seas.mean.temp
+#remove spring_seas.total.precip
+#remove winter_seas.mean.precip
+
+#params object below is the same as above, but I subtracted the four variables listed above
+params<-phen.abio%>%
+  select(
+    # Variables of interest for PCA
+    c(scientific_name,year,ordinal_date,site,elevation_m, data_type, tmean.avg, ppt.mean, -seas.mean.precip, seas.total.precip, -seas.mean.temp, seas.min.temp, -spring_seas.total.precip, winter_seas.total.precip, spring_seas.mean.precip, winter_seas.mean.precip, spring_seas.min.temp, winter_seas.min.temp, spring_seas.mean.temp, -winter_seas.mean.temp, year
+    )
+  )%>%
+  drop_na()
+
+pca.params <- params %>% 
+  select(where(~ is.numeric(.) || is.integer(.)))
+
+PCA <- prcomp(pca.params, scale. = TRUE)
+
+PCA <-pca.params%>%
+  select(-year)%>%
+  # Perform PCA with scaled variables
+  prcomp(scale = TRUE)
+
+PCA%>%
+  tidy(matrix = "eigenvalues")
+
+
+PCA_var <- PCA %>%
+  tidy(matrix = "rotation") %>%            # Extract variable loadings from PCA
+  pivot_wider(names_from = "PC",          # Transform long to wide format
+              names_prefix = "PC", 
+              values_from = "value") %>%
+  rename(Variable = column) %>%           # Rename column for variables
+  mutate(
+    Variable = str_to_title(Variable),    # Capitalize first letter
+    Variable = str_replace_all(Variable, "_", " ") # Replace underscores with spaces
+  )
+
+#Plot things up
+
+var<-ggplot(data=PCA_var,aes(PC1, PC2)) +
+  # Add variables arrows
+  geom_segment(
+    xend = 0, yend = 0, 
+    arrow = arrow(
+      length = unit(0.03, "npc"),
+      ends = "first"
+    )
+  )+
+  # Add variables names
+  geom_text_repel(
+    aes(label = Variable),
+    hjust = 1,size=3,
+    min.segment.length = Inf,
+    nudge_x=0.01,nudge_y=0.01
+  ) +
+  coord_fixed()+
+  labs(
+    title = 'Plot of variables',
+    x='PC1 (22%)',
+    y='PC2 (11%)',
+    color='Year'
+  )+
+  theme_minimal()
+
+
+ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/PCA_biplot_allvariables_BW.png", var, width = 6, height = 6 , dpi = 300)
+
+```
+
+
+#Create new pca with colors for data type
 
 ```{r}
 names(phen.abio)
@@ -127,20 +226,14 @@ phen.abio <- phen.abio %>%
 
 #select only the relevant columns
 phen.abio2 <- phen.abio %>%
-  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp, prevSpringTemp)
-str(phen.abio2)
-names(phen.abio2)
-
+  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, winter_seas.total.precip, winter_seas.mean.temp, spring_seas.min.temp, spring_seas.mean.temp, springFrost) %>%
+  drop_na()
 
 
 #rename columns with underscores in colnames because it'll mess up map functions in purrr package later on!
-phen.abio2 <- phen.abio %>% 
-  rename(
-    scientific.name = scientific_name,
-    ordinal.date = ordinal_date,
-    elevation = elevation_m,
-    data.type = data_type
-  )
+phen.abio2 <- phen.abio2 %>%
+  rename_with(~ str_replace_all(., "_", "."))
+
   
 
 #check for null values
@@ -172,7 +265,7 @@ pca_variance_explained <- pca_variance / sum(pca_variance)
 #check the PCA loadings from the result and save them for the supplement
 pca_loadings <- pca_result$rotation
 pca_loadings[, 1:8]
-barplot(pca_loadings, main = "Loadings for PC", las = 2, col = "forestgreen", cex.names = 0.7)
+barplot(pca_loadings, main = "Loadings for PC", las = 2, col = "limegreen", cex.names = 0.7)
 
 write.csv(pca_loadings, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/PCA_loadings.csv", row.names=TRUE)
 
@@ -190,26 +283,47 @@ biplot(pca_result, scale = .5)  # You can use other parameters to fine-tune the 
 
 #Make it pretty
 library(ggbiplot)
-PCA_biplot <- ggbiplot(pca_result, obs.scale = 1, var.scale = 1, 
-         groups = factor(phen.abio2$data.type),  # Replace with your grouping variable if applicable
-         ellipse = TRUE,  # Adds confidence ellipses around groups
-         circle = TRUE,
-         varname.size = 4,
-         varname.adjust =1,) + 
-  scale_color_manual(values=c( "#CCBB44", "#AA3377")) +  # 
-  theme_bw() +  # Clean theme for readability
-  theme(legend.position = 'bottom') 
 
+PCA_biplot <- ggbiplot(
+  pca_result, 
+  obs.scale = 1, 
+  var.scale = 1, 
+  groups = factor(phen.abio2$data.type), 
+  ellipse = TRUE, 
+  circle = FALSE,
+  varname.size = 4,
+  varname.adjust = 1,
+  alpha = 0.15
+) + 
+  scale_color_manual(values = c("#CCBB44", "#AA3377")) +  
+  theme_bw() +
+  theme(
+    legend.position = 'bottom',  # Place legend at the bottom
+    text = element_text(size = 12)  # Adjust font size for readability
+  ) +
+  guides(color = "none") +  
+  geom_point(size = 0, alpha = 0.4) 
 
 ggsave("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Figures/PCA_biplot.png", PCA_biplot, width = 6, height = 6 , dpi = 300)
+
+
+#Check out PC1 and PC2 loadings
+pca_loadings[,1:2]
 
 ```
 
 
 #Models
-From the PCA above, it seems like PC1 is most strongly impacted by temperature (tmean.average) and preceding winter and (or?) spring temperature and year (seasonYear). PC2 suggests that we might also want to include previous winter precipitation (prevWintPPT) and general precipitation (ppt.mean). 
+From the PCA above, I'm going to select the following variables for the models:
+-winter.season.total.precip
+-spring.season.mean.temp
+-seasonYear
+-tmean.avg
+-ppt.mean
+-ordinal.date
 
-Given these outputs, I'll focus on what PC1 indicates as important, and add prevWintPPT as well. These are the variables that will go into the mixed hierarchical models later on in the script. 
+And I might simplify this further based on biology, literature, etc. to just winter total precipitation and spring mean temperature for the abiotic variables.
+
 
 ##Basic linear models (frequentist)
 First, let's build some basic linear models to explore the data
@@ -299,12 +413,12 @@ for (i in spp) {
   
   # Find the earliest observation for each year while keeping all variables
   earliest_data <- subset_data %>%
-    group_by(year, prevWintPPT, data_type) %>%
+    group_by(year, winter_seas.total.precip, data_type) %>%
     filter(ordinal_date == min(ordinal_date)) %>%
     ungroup()
   
   # Fit mixed-effects model with fixed effects for year and random effects for data_type; when I included site it was over-fit
-  mixed_model <- lmer(ordinal_date ~ year + prevWintPPT + (1 | data_type), data = earliest_data)
+  mixed_model <- lmer(ordinal_date ~ year + winter_seas.total.precip + (1 | data_type), data = earliest_data)
   
   # Store the mixed-effects model in the list with species name as key
   mixed_models[[i]] <- mixed_model
@@ -386,114 +500,67 @@ write.csv(all_summaries, "/Users/elizabethlombardi/Desktop/Research/UNM/Erin phe
 ```
 
 # Bayesian linear model
-## Using BLME package
-This is interesting but probably not what I'll go with. I'll use BRMS see below.
-
-```{r}
-# Initialize an empty list to store models
-mixed_models <- list()
-spp <- unique(phen.abio$scientific_name)
-
-i='Castilleja occidentalis'
-# Loop through each species
-for (i in spp) {
-  # Subset data for the current species
-  subset_data <- subset(phen.abio, scientific_name == i)
-  
-  # Find the earliest observation for each year while keeping all variables
-  earliest_data <- subset_data %>%
-    group_by(year) %>%
-    filter(ordinal_date == min(ordinal_date)) %>%
-    ungroup()
-  
-  try <- earliest_data %>%
-    mutate(across(c(data_type), as.factor))
-    
-    
-  
-  # Fit Bayesian mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type: INCORRECT
-  mixed_model_b <- blmer(ordinal_date ~ (year) + (prevWintPPT) + (year:prevWintPPT) + (1|data_type) + site, 
-                         data = try,
-                         prior=normal(0,10),
-                         prior_intercept=normal(0,10))
-  
-  earliest_data$prevWintPPT <- scale(earliest_data$prevWintPPT)
-  model <- blmer(ordinal_date ~ data_type +           # Fixed effect
-                 #(1 | seasonYear) +                       # Random intercept for year
-                 prevWintPPT,                        # Random intercept for site
-               data = earliest_data)   
-  
-  # Store the mixed-effects model in the list with species name as key
-  mixed_models[[i]] <- mixed_model_b
-}
-
-# Print one of the fitted models for verification
-print(summary(mixed_models$`Primula angustifolia`))
-
-# Optionally, you can create a tidy table with all fitted models including p-values and t-values
-model_summaries <- lapply(names(mixed_models), function(species) {
-  model <- mixed_models[[species]]
-  
-  # Extract fixed effects and other relevant information
-  tidy_model <- tidy(model, effects = "fixed") %>%
-    mutate(
-      species = species
-    ) %>%
-    select(species, term, estimate, std.error, statistic, p.value)
-  
-  tidy_model
-})
-
-# Combine all summaries into a single data frame
-all_summaries <- bind_rows(model_summaries)
-
-# Print the tidy table
-print(all_summaries)
-
-
-
-```
-
-
-# BRMS package: Mixed model for earliest flowering dates per species over time
+## BRMS package: Mixed model for earliest flowering dates per species over time. Variables to include potentially:
+-winter.season.total.precip
+-spring.season.mean.temp
+-seasonYear
+-tmean.avg
+-ppt.mean
+-ordinal.date
 
 ### General model
 Here I'll call species a group-level fixed effect rather than treating each species separately. 
 
-#### Mod1 
+#### Mod1 precipitation + temperature
 ```{r}
-
-#MOD1 versions (i.e. prevWintPPT and tmean.avg)
-mod1 <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), data=phen.abio2, family=poisson())
-summary(mod1)
-
+#MOD1 versions (i.e. previous winter snow and mean spring temperatures)
 #need more iterations
-mod1b <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), 
+mod1 <- brm(ordinal.date ~ seasonYear + spring.seas.mean.temp + winter.seas.total.precip + (1 | scientific.name), 
              data=phen.abio2, 
-             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             family=gaussian(), #gaussian is much better than poisson
              iter = 4000, 
              chains = 4)
 
-pairs(mod1b)
-summary(mod1b)
+pairs(mod1)
+summary(mod1)
 
 #interactive effect of abiotic data instead?
-mod1c <- brm(ordinal.date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific.name), 
+mod1c <- brm(ordinal.date ~ seasonYear + spring.seas.mean.temp * winter.seas.total.precip + (1 | scientific.name), 
              data=phen.abio2, 
-             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             family=gaussian(),
              iter = 4000, 
              chains = 4)
 
 pairs(mod1c)
 summary(mod1c)
 
+#interactive effect going the other way?
+mod1d <- brm(ordinal.date ~ seasonYear + winter.seas.total.precip * spring.seas.mean.temp + (1 | scientific.name), 
+             data=phen.abio2, 
+             family=gaussian(),
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1d)
+summary(mod1d)
 
 #compare models with a leave-one-out (LOO) cross validation technique
-loo(mod1b, mod1c) #model 1c has higher eLPD than model 1b, so we will use that one! All pareto k estimates are good. 
+loo(mod1d, mod1c) #model 1c has higher eLPD than model 1d, so we will use that one! All pareto k estimates are good. 
 
-# I might want to remove occID because it's probably not really helping...but I'll mess around with that later
 ```
-#### Mod2 spring temperatures
+
+#### Mod1c outputs
+test and report the results from the interactive model above 
+
+```{r}
+summary(mod1c)
+conditional_effects(mod1c)
+pp_check(mod1c) # I think this matches well enough?
+
+```
+#### Mod2 
+modify temperature and precipitaiton variables across the options to maybe figure out a better model?
+
 ```{r}
 #MOD2 versions (i.e. prevWintPPT and prevSpringTemp)
 mod1 <- brm(ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + occID + (1 | scientific.name), data=phen.abio2, family=poisson())
@@ -519,11 +586,25 @@ mod1c <- brm(ordinal.date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | 
 pairs(mod1c)
 summary(mod1c)
 
+#different interaction (the other way?)
+mod1c <- brm(ordinal.date ~ seasonYear + tmean.avg * prevWintPPT + occID + (1 | scientific.name), 
+             data=phen.abio2, 
+             family=gaussian(),#changed to gaussian from poisson to see if it helps with convergence [it helps a TON]
+             iter = 4000, 
+             chains = 4)
+
+pairs(mod1c)
+summary(mod1c)
+
 
 #compare models with a leave-one-out (LOO) cross validation technique
 loo(mod1b, mod1c) 
 ```
-## Same model for individual species
+
+
+
+### Individual spp model
+Apply the same model formulation (mod1c) to each individual species separately, and save the model output for each individual species. 
 
 ```{r}
 #Initialize empty list to store models
@@ -531,7 +612,7 @@ bayesian.models <- list()
 spp <- unique(phen.abio2$scientific.name)
 
 #for testing
-#i='Polemonium viscosum'
+i='Polemonium viscosum'
 
 # Loop through each species
 for (i in spp) {
@@ -546,7 +627,7 @@ for (i in spp) {
   
   # Fit Bayesian mixed-effects model 
   bayesian.model <- brm(
-    ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
+    ordinal.date ~ seasonYear + spring.seas.mean.temp * winter.seas.total.precip + (1|data.type),
     data = earliest.data,
     chains = 4,  # Number of Markov chains
     iter = 4000, # Number of iterations per chain
@@ -589,12 +670,15 @@ write.csv(significant.results, "/Users/elizabethlombardi/Desktop/Research/UNM/Er
 ```
 
 
+
+
+### OUTPUT the results of each species model
 ```{r}
 bayesian.models <- list()
 spp <- unique(phen.abio2$scientific.name)
 
 #To test the code
-i="Castilleja occidentalis"
+#i="Castilleja occidentalis"
 
 for (i in spp) {
   # Subset data for the current species
@@ -609,7 +693,7 @@ for (i in spp) {
   # Fit Bayesian mixed-effects model and handle errors if any
   bayesian.model <- tryCatch({
     brm(
-      ordinal.date ~ seasonYear + tmean.avg + prevWintPPT + (1|data.type),
+      ordinal.date ~ seasonYear + spring.seas.mean.temp * winter.seas.total.precip + (1|data.type),
       data = earliest.data,
       chains = 4,  # Number of Markov chains
       iter = 4000, # Number of iterations per chain
@@ -949,6 +1033,75 @@ library(phenomix)
 library(ggplot2)
 library(dplyr)
 library(TMB)
+
+```
+
+###OLD BAYESIAN
+## Using BLME package
+This is interesting but probably not what I'll go with. I'll use BRMS see below.
+
+```{r}
+# Initialize an empty list to store models
+mixed_models <- list()
+spp <- unique(phen.abio$scientific_name)
+
+i='Castilleja occidentalis'
+# Loop through each species
+for (i in spp) {
+  # Subset data for the current species
+  subset_data <- subset(phen.abio, scientific_name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest_data <- subset_data %>%
+    group_by(year) %>%
+    filter(ordinal_date == min(ordinal_date)) %>%
+    ungroup()
+  
+  try <- earliest_data %>%
+    mutate(across(c(data_type), as.factor))
+    
+    
+  
+  # Fit Bayesian mixed-effects model with fixed effects for year and prevWintPPT, and random effects for data_type: INCORRECT
+  mixed_model_b <- blmer(ordinal_date ~ (year) + (prevWintPPT) + (year:prevWintPPT) + (1|data_type) + site, 
+                         data = try,
+                         prior=normal(0,10),
+                         prior_intercept=normal(0,10))
+  
+  earliest_data$prevWintPPT <- scale(earliest_data$prevWintPPT)
+  model <- blmer(ordinal_date ~ data_type +           # Fixed effect
+                 #(1 | seasonYear) +                       # Random intercept for year
+                 prevWintPPT,                        # Random intercept for site
+               data = earliest_data)   
+  
+  # Store the mixed-effects model in the list with species name as key
+  mixed_models[[i]] <- mixed_model_b
+}
+
+# Print one of the fitted models for verification
+print(summary(mixed_models$`Primula angustifolia`))
+
+# Optionally, you can create a tidy table with all fitted models including p-values and t-values
+model_summaries <- lapply(names(mixed_models), function(species) {
+  model <- mixed_models[[species]]
+  
+  # Extract fixed effects and other relevant information
+  tidy_model <- tidy(model, effects = "fixed") %>%
+    mutate(
+      species = species
+    ) %>%
+    select(species, term, estimate, std.error, statistic, p.value)
+  
+  tidy_model
+})
+
+# Combine all summaries into a single data frame
+all_summaries <- bind_rows(model_summaries)
+
+# Print the tidy table
+print(all_summaries)
+
+
 
 ```
 
