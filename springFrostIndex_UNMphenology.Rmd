@@ -27,26 +27,6 @@ load(file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/
 # Spring frost index
 Calculate the records collected in years following different snow/temperature regimes 
 
-## Spring temperatures
-```{r}
-#create column for spring temperature
-tempshifted <- abio.df %>%
-  group_by(season_label, site, seasonYear) %>%
-  summarise(mean_temp_mean = mean(tmean.avg, na.rm = TRUE)) %>%
-  mutate(seasonYear.shifted = seasonYear + 1)
-
-tempshifted.spring <- tempshifted %>%
-  filter(str_detect(season_label, "^spring\\d+"))
-
-df.shift <- df.shift %>% 
-  left_join(tempshifted.spring, by = c("seasonYear"="seasonYear.shifted", "site")) %>%
-  rename(prevSpringTemp = mean_temp_mean)
-
-df.shift<-df.shift %>%
-  select(-seasonYear.y, -season_label)
-
-```
-
 
 ## Frost categories
 
@@ -54,34 +34,21 @@ At this point, `df.shift` is the dataframe with the information that we need! I'
 
 ```{r}
 #check cutoffs
-quantile(df.shift$prevWintPPT, na.rm=TRUE)
-quantile(df.shift$prevSpringTemp, na.rm=TRUE)
+quantile(phen.abio$winter_seas.total.precip, na.rm=TRUE)
+quantile(phen.abio$spring_seas.min.temp, na.rm=TRUE)
 
 
 #based on previous WINTER temperature and precipitation
-df.winter <- df.shift %>%
-  filter(!is.na(prevWintPPT) & !is.na(prevWintTemp)) %>%
+phen.abio <- phen.abio %>%
+  filter(!is.na(winter_seas.total.precip) & !is.na(spring_seas.min.temp)) %>%
   mutate(
     springFrost = case_when(
-      prevWintPPT <= quantile(prevWintPPT, 0.25) & prevWintTemp <= quantile(prevWintTemp, 0.25) ~ "high",
-      prevWintPPT >= quantile(prevWintPPT, 0.75) & prevWintTemp >= quantile(prevWintTemp, 0.75) ~ "low",
+      winter_seas.total.precip <= quantile(winter_seas.total.precip, 0.25) & spring_seas.min.temp <= quantile(spring_seas.min.temp, 0.25) ~ "high",
+      winter_seas.total.precip >= quantile(winter_seas.total.precip, 0.75) & spring_seas.min.temp >= quantile(spring_seas.min.temp, 0.75) ~ "low",
       TRUE ~ "moderate"
     )
   )
-table(df.winter$springFrost)
-
-
-#based on previous winter PPt and previous SPRING temperature
-df.springFrost <- df.shift %>%
-  filter(!is.na(prevWintPPT) & !is.na(prevSpringTemp)) %>%
-  mutate(
-    springFrost = case_when(
-      prevWintPPT <= quantile(prevWintPPT, 0.25) & prevSpringTemp <= quantile(prevSpringTemp, 0.25) ~ "high",
-      prevWintPPT >= quantile(prevWintPPT, 0.75) & prevSpringTemp >= quantile(prevSpringTemp, 0.75) ~ "low",
-      TRUE ~ "moderate"
-    )
-  )
-table(df.springFrost$springFrost) #Huh. No low risk years based on quantile approach alone...Go with it for now. 
+table(phen.abio$springFrost)
 
 
 #Use df.springFrost for the abiotic+phenology dataframe (for models, etc)
@@ -94,14 +61,14 @@ save(phen.abio, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenolo
 
 ```{r}
 #basic plot with all data for all species in one graph
-ggplot(df.springFrost, aes(x = year, y = ordinal_date, color = factor(springFrost))) +
+ggplot(phen.abio, aes(x = year, y = ordinal_date, color = factor(springFrost))) +
   geom_point() +
-  geom_smooth(method = "lm", se = FALSE, aes(group = springFrost)) +  # Add linear regression lines
+  geom_smooth(method = "loess", se = FALSE, aes(group = springFrost)) +  # Add linear regression lines
   scale_color_manual(values = c("red", "goldenrod2", "slategray")) +  # You can adjust colors
   theme_minimal()
 
 #Species plots with linear regression
-ggplot(df.springFrost, aes(x = year, y = ordinal_date, color=factor(springFrost))) +
+ggplot(phen.abio, aes(x = year, y = ordinal_date, color=factor(springFrost))) +
   geom_point(outlier.shape = NA) +
   geom_smooth(method = "lm", se = FALSE) +
   labs(

@@ -39,6 +39,81 @@ load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Pheno
 #Explore varinace
 ###PCA
 
+#NEW VERSION
+```{r}
+params<-phen.abio%>%
+  select(
+    # Variables of interest for PCA
+    c(scientific_name,year,ordinal_date,site,elevation_m, data_type, tmean.avg, ppt.mean, seas.mean.precip, seas.total.precip, seas.mean.temp, seas.min.temp, spring_seas.total.precip, winter_seas.total.precip, spring_seas.mean.precip, winter_seas.mean.precip, spring_seas.min.temp, winter_seas.min.temp, spring_seas.mean.temp, winter_seas.mean.temp, year
+    )
+  )%>%
+  drop_na()
+
+pca.params <- params %>% 
+  select(where(~ is.numeric(.) || is.integer(.)))
+
+PCA <- prcomp(pca.params, scale. = TRUE)
+
+PCA <-pca.params%>%
+  select(-year)%>%
+  # Perform PCA with scaled variables
+  prcomp(scale = TRUE)
+
+PCA%>%
+  tidy(matrix = "eigenvalues")
+
+PCA <- PCA %>%
+  broom::augment(pca.params)
+
+ggplot(
+  data=PCA,
+  aes(.fittedPC1, .fittedPC2,color=year))+
+  geom_point()+
+  theme_minimal()
+
+#plot all the parameters
+
+PCA_var <- PCA %>%
+  tidy(matrix = "rotation") %>%            # Extract variable loadings from PCA
+  pivot_wider(names_from = "PC",          # Transform long to wide format
+              names_prefix = "PC", 
+              values_from = "value") %>%
+  rename(Variable = column) %>%           # Rename column for variables
+  mutate(
+    Variable = str_to_title(Variable),    # Capitalize first letter
+    Variable = str_replace_all(Variable, "_", " ") # Replace underscores with spaces
+  )
+
+head(PCA_var)
+
+var<-ggplot(data=PCA_var,aes(PC1, PC2)) +
+  # Add variables arrows
+  geom_segment(
+    xend = 0, yend = 0, 
+    arrow = arrow(
+      length = unit(0.03, "npc"),
+      ends = "first"
+    )
+  )+
+  # Add variables names
+  geom_text_repel(
+    aes(label = Variable),
+    hjust = 1,size=3,
+    min.segment.length = Inf,
+    nudge_x=0.01,nudge_y=0.01
+  ) +
+  coord_fixed()+
+  labs(
+    title = 'Plot of variables',
+    x='PC1 (22%)',
+    y='PC2 (11%)',
+    color='Year'
+  )+
+  theme_minimal()
+
+```
+
+
 ```{r}
 names(phen.abio)
 
@@ -46,15 +121,20 @@ names(phen.abio)
 phen.abio <- phen.abio %>% mutate(occID = row_number())
 names(phen.abio)
 
+#maybe cut back to just the basic phenology plut ppt and temp info
+phen.abio <- phen.abio %>%
+  select(-prevWintPPT, -prevWintTemp, -prevSpringTemp, -springFrost)
 
 #select only the relevant columns
 phen.abio2 <- phen.abio %>%
-  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp, prevSpringTemp, springFrost)
+  select(occID, scientific_name, ordinal_date, site, elevation_m, data_type, tmean.avg, ppt.mean, seasonYear, prevWintPPT, prevWintTemp, prevSpringTemp)
 str(phen.abio2)
 names(phen.abio2)
 
+
+
 #rename columns with underscores in colnames because it'll mess up map functions in purrr package later on!
-phen.abio2 <- phen.abio2 %>% 
+phen.abio2 <- phen.abio %>% 
   rename(
     scientific.name = scientific_name,
     ordinal.date = ordinal_date,

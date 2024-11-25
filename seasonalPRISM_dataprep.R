@@ -82,7 +82,7 @@ ggplot(phen.abio, aes(x = year, y = tmean.avg, color=site)) +
 # I want to add ppt and temp data from preceding winter season (season_label) to the mixed effects linear models. For this, move over to the BayesianRegMods_alpPhenology.Rmd script
 
 abio.seasonal <- abio.df %>%
-  group_by(site, season.label) %>%  # Group by site, seasonal year, and season
+  group_by(site, season.label, seasonYear, season) %>%  # Group by site, seasonal year, and season
   summarize(
     seas.mean.precip = mean(ppt.mean, na.rm = TRUE), #mean seasonal precipitation
     seas.total.precip = sum(ppt.mean, na.rm = TRUE), # Total seasonal precipitation
@@ -92,24 +92,48 @@ abio.seasonal <- abio.df %>%
   )
 
 phen.abio <- phen.abio %>%
-  left_join(abio.seasonal, by = c("site", "season.label"))
+  left_join(abio.seasonal, by = c("site", "season.label")) #this adds seasonal values for the collection season (basically only fall and summer)
 
-save(phen.abio, abio.df, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
+
+### Next join previous winter precipitation to the dataframe
+
+phen.abio <- phen.abio %>%
+  left_join(
+    abio.seasonal %>%
+      filter(season %in% c("winter", "spring")) %>% # Filter for winter and spring
+      select(site, seasonYear, season, seas.total.precip, seas.mean.precip, seas.min.temp, seas.mean.temp) %>% # Select relevant columns
+      pivot_wider(
+        names_from = season,
+        values_from = c(seas.total.precip, seas.mean.precip, seas.min.temp, seas.mean.temp),
+        names_glue = "{season}_{.value}" # Create descriptive column names
+      ), # Pivot to wide format for easy merging
+    by = c("site", "seasonYear") # Join on site and seasonYear
+  )
+
+
+######
+save(phen.abio, abio.seasonal, file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
 load(file="/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenAbio.RData")
 
 
+#
+#
+#
 ###QUICK descriptive stats about how seasonal values have changed over time 
+#
+#
+#
 
-abio.grp1 <- abio.df %>%
-  group_by(season, season_label, site, year) %>%
+abio.grp1 <- phen.abio %>%
+  group_by(season, season.label, site, year) %>%
   summarize(mean(ppt.mean)) 
 
 abio.grp2 <- abio.df %>%
-  group_by(season, season_label, site, year) %>%
+  group_by(season, season.label, site, year) %>%
   summarize(mean(tmean.avg)) 
   
 abio.grp <- abio.grp1 %>%
-  left_join(abio.grp2, by=c("season", "season_label", "site", "year")) %>%
+  left_join(abio.grp2, by=c("season", "season.label", "site", "year")) %>%
   rename('pptSeasonMean'='mean(ppt.mean)') %>%
   rename('tmeanSeasonMean' = 'mean(tmean.avg)')
 
@@ -124,7 +148,7 @@ maxTemp <- max(abio.df$tmean.avg)
 #Generally have things changed seasonally over time? 
 
 #Seasonal precipitation (all monthly data included, facet wrapped by season)
-ggplot(abio.df, aes(x = year, y = ppt.mean)) +
+ggplot(phen.abio, aes(x = year, y = seas.mean.temp)) +
   geom_point(alpha=0.5) +
   geom_smooth(method = "loess", se = FALSE, color="turquoise3") +
   labs(
