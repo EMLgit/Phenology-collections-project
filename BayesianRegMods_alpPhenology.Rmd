@@ -26,6 +26,8 @@ library(broom.mixed)
 library(dplyr)
 library(brms)
 library(purrr)
+library(stringr)
+library(tidyr)
 
 #Load datastack
 #load("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Phenology collections project/phenologyCollProj_workspace.RData")
@@ -612,7 +614,7 @@ bayesian.models <- list()
 spp <- unique(phen.abio2$scientific.name)
 
 #for testing
-i='Polemonium viscosum'
+#i='Polemonium viscosum'
 
 # Loop through each species
 for (i in spp) {
@@ -627,7 +629,7 @@ for (i in spp) {
   
   # Fit Bayesian mixed-effects model 
   bayesian.model <- brm(
-    ordinal.date ~ seasonYear + spring.seas.mean.temp * winter.seas.total.precip + (1|data.type),
+    ordinal.date ~ seasonYear + spring.seas.mean.temp + winter.seas.total.precip + (1|data.type),
     data = earliest.data,
     chains = 4,  # Number of Markov chains
     iter = 4000, # Number of iterations per chain
@@ -669,6 +671,15 @@ write.csv(significant.results, "/Users/elizabethlombardi/Desktop/Research/UNM/Er
 
 ```
 
+```{r}
+library(bayesplot)
+
+ranef_species <- ranef(bayesian.model)$data.type
+
+mcmc_intervals(as.matrix(ranef_species[, , "Intercept"]), prob = 0.95)
+
+```
+
 
 
 
@@ -678,7 +689,7 @@ bayesian.models <- list()
 spp <- unique(phen.abio2$scientific.name)
 
 #To test the code
-#i="Castilleja occidentalis"
+i="Castilleja occidentalis"
 
 for (i in spp) {
   # Subset data for the current species
@@ -693,7 +704,7 @@ for (i in spp) {
   # Fit Bayesian mixed-effects model and handle errors if any
   bayesian.model <- tryCatch({
     brm(
-      ordinal.date ~ seasonYear + spring.seas.mean.temp * winter.seas.total.precip + (1|data.type),
+      ordinal.date ~ seasonYear + spring.seas.mean.temp + winter.seas.total.precip + (1|data.type),
       data = earliest.data,
       chains = 4,  # Number of Markov chains
       iter = 4000, # Number of iterations per chain
@@ -718,6 +729,69 @@ for (i in spp) {
 }
 ```
 
+
+# Center ordinal.date
+The intercept is important, it seems, and is different than zero for each of the species when I run the individual models (i.e. the loop). That's biologically obvious: if January 1 is ordinal date #1, then we shouldn't have any flowering observations until much later (indeed, ordinal date 135 is the minimum value). I'm going to center the response variable and see if the model performs any better.
+
+Note that there will be negative values as a result. The mean of all ordinal.date values is used here, so some values will be greater and some will be less than this value. It seems...tenuous and many unnecessary, but let's see. 
+
+***Update from this step: it seems like centering the response variable doesn't do much. We have too few observations for each of the species, I think. That's just inescapable. The only reason to center the ordinal dates is to compare observed earliest flowering dates for each species to the overall mean flowering date for all species combined...which is how the centering below works. This doesn't really make sense to me. We could compare to mean flowering date for each species...maybe that's better? But I just don't think we have enough date for each data type to keep chopping things up like this. 
+
+I'm sticking with the original ordinal.date column rather than the adjusted ordinal date column. 
+```{r}
+phen.abio2$adj.ordinal.date <- phen.abio2$ordinal.date - mean(phen.abio2$ordinal.date)
+```
+
+#### Re-run adj. ordinal date model
+
+```{r}
+
+bayesian.models <- list()
+spp <- unique(phen.abio2$scientific.name)
+
+#To test the code
+i="Castilleja occidentalis"
+
+for (i in spp) {
+  # Subset data for the current species
+  subset.data <- subset(phen.abio2, scientific.name == i)
+  
+  # Find the earliest observation for each year while keeping all variables
+  earliest.data <- subset.data %>%
+    group_by(seasonYear) %>%
+    filter(adj.ordinal.date == min(adj.ordinal.date)) %>%
+    ungroup() 
+  
+  # Fit Bayesian mixed-effects model and handle errors if any
+  bayesian.model.adj <- tryCatch({
+    brm(
+      adj.ordinal.date ~ seasonYear + spring.seas.mean.temp + winter.seas.total.precip + (1|data.type),
+      data = earliest.data,
+      chains = 4,  # Number of Markov chains
+      iter = 4000, # Number of iterations per chain
+      warmup = 1000, # Number of warmup (burn-in) iterations
+      cores = parallel::detectCores(), # Use all available cores
+      control = list(adapt_delta = 0.98, max_treedepth = 15)
+    )
+  }, error = function(e) {
+    message("Error fitting model for species ", i, ": ", e$message)
+    NULL
+  })
+
+  # Store the Bayesian model in the list with species name as key if model fits
+  if (!is.null(bayesian.model)) {
+    bayesian.models[[i]] <- bayesian.model.adj
+
+    # Extract summary output and save to a file
+    summary_output <- capture.output(summary(bayesian.model.adj))
+    file_path <- file.path("/Users/elizabethlombardi/Desktop/Research/UNM/Erin phenology project/Model results (individ. spp)/", paste0("summarySPPmod.adj_", i, ".txt"))
+    writeLines(summary_output, con = file_path)
+  }
+}
+
+
+
+```
 
 
 
