@@ -1,25 +1,10 @@
-"effect","component","term","estimate","std.error","conf.low","conf.high","species","significant"
-"fixed","cond","(Intercept)",258.325064218384,43.9670480672247,170.935287334905,345.499542517694,"Artemisia scopulorum",TRUE
-"fixed","cond","seasonYear",-0.361135716882725,0.120263293448468,-0.604869738656542,-0.126131685441253,"Artemisia scopulorum",TRUE
-"fixed","cond","(Intercept)",290.686602661786,42.9962537805785,205.534273403181,375.532621183032,"Bistorta bistortoides",TRUE
-"fixed","cond","seasonYear",-0.256450130981727,0.124262117995146,-0.501793080831214,-0.0145052292144604,"Bistorta bistortoides",TRUE
-"fixed","cond","(Intercept)",204.861643337983,44.608190539189,117.399668652133,294.074332532922,"Castilleja occidentalis",TRUE
-"fixed","cond","winter.seas.total.precip",4.46616608080762,2.25894207187222,0.109619520653343,8.94052745389387,"Castilleja occidentalis",TRUE
-"fixed","cond","(Intercept)",241.888294242647,42.1134020212697,157.957397616811,324.112011409744,"Cherleria obtusiloba",TRUE
-"fixed","cond","(Intercept)",197.289232743648,52.2113339513313,92.3380229945989,301.373613893499,"Eremogone fendleri",TRUE
-"fixed","cond","(Intercept)",335.005203185788,38.8441797202497,259.01148304157,412.733707413608,"Gentiana algida",TRUE
-"fixed","cond","spring.seas.mean.temp",-3.58378904713228,1.36838526259912,-6.3351690775252,-0.916407056495973,"Gentiana algida",TRUE
-"fixed","cond","(Intercept)",224.276179481454,52.6403658936005,115.939239920061,326.834284941471,"Geum rossii",TRUE
-"fixed","cond","(Intercept)",223.492651721745,29.9111099151975,163.704334451328,282.228097299688,"Hymenoxys grandiflora",TRUE
-"fixed","cond","(Intercept)",285.028878856566,36.6604392682248,212.491298161839,358.092750168994,"Pedicularis groenlandica",TRUE
-"fixed","cond","(Intercept)",215.353773368455,89.0946452534604,36.7379124214784,388.15690285765,"Pedicularis parryi",TRUE
-"fixed","cond","(Intercept)",294.472739287356,40.3419293019444,213.828102925713,374.76330912492,"Penstemon whippleanus",TRUE
-"fixed","cond","spring.seas.mean.temp",-3.76965998871745,1.66220885080318,-7.13350011925158,-0.470576718479171,"Penstemon whippleanus",TRUE
-"fixed","cond","(Intercept)",216.140266702541,37.4695370948508,142.181039096555,290.405797851828,"Polemonium viscosum",TRUE
-"fixed","cond","(Intercept)",214.710393664078,28.3335867856303,157.925359560091,270.612314582935,"Primula angustifolia",TRUE
-"fixed","cond","seasonYear",-0.16526216561582,0.0784027441386279,-0.320349413668804,-0.00797258301773417,"Primula angustifolia",TRUE
-"fixed","cond","winter.seas.total.precip",2.47060354202051,1.18753207512506,0.11601159908713,4.83456109610105,"Primula angustifolia",TRUE
-"fixed","cond","(Intercept)",237.149331874538,38.7480479081488,162.28411073054,312.783477778053,"Trifolium dasyphyllum",TRUE
-"fixed","cond","(Intercept)",189.113500251851,32.2767171153145,125.452045290462,251.210433397071,"Trifolium nanum",TRUE
-"fixed","cond","seasonYear",-0.271340828190203,0.101229450129684,-0.469687266558924,-0.0734036068447531,"Trifolium nanum",TRUE
-"fixed","cond","winter.seas.total.precip",3.44727810425538,1.20531783490841,1.10080860740286,5.78594604007156,"Trifolium nanum",TRUE
+species,effect,component,term,estimate,std.error,conf.low,conf.high,significant
+Artemisia scopulorum,fixed,cond,seasonYear,-0.361135717,0.120263293,-0.604869739,-0.126131685,TRUE
+Bistorta bistortoides,fixed,cond,seasonYear,-0.256450131,0.124262118,-0.501793081,-0.014505229,TRUE
+Castilleja occidentalis,fixed,cond,winter.seas.total.precip,4.466166081,2.258942072,0.109619521,8.940527454,TRUE
+Gentiana algida,fixed,cond,spring.seas.mean.temp,-3.583789047,1.368385263,-6.335169078,-0.916407056,TRUE
+Penstemon whippleanus,fixed,cond,spring.seas.mean.temp,-3.769659989,1.662208851,-7.133500119,-0.470576718,TRUE
+Primula angustifolia,fixed,cond,seasonYear,-0.165262166,0.078402744,-0.320349414,-0.007972583,TRUE
+Primula angustifolia,fixed,cond,winter.seas.total.precip,2.470603542,1.187532075,0.116011599,4.834561096,TRUE
+Trifolium nanum,fixed,cond,seasonYear,-0.271340828,0.10122945,-0.469687267,-0.073403607,TRUE
+Trifolium nanum,fixed,cond,winter.seas.total.precip,3.447278104,1.205317835,1.100808607,5.78594604,TRUE
